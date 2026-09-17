@@ -1,0 +1,18 @@
+[project]
+name = "agent-text-to-sql"
+version = "0.1.0"
+description = "Agente de conversão de texto para SQL"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "langgraph>=0.2",
+    "langchain>=0.3",
+    "langchain-core>=0.3",
+    "langchain-groq>=0.2",
+    "streamlit>=1.40",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.3.5",
+]
+
