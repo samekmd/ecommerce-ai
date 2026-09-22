@@ -1,6 +1,6 @@
 """Grafo do agente Text-to-SQL: no do agente + ToolNode + roteamento."""
 
-from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
@@ -9,7 +9,7 @@ from langgraph.prebuilt import ToolNode
 
 from src.config import configuracao
 from src.database.database import sessao_app
-from src.llm import obter_llm
+from src.llm import invocar_com_timeout
 from src.repositories import prompt_repository
 from src.routing import rotear
 from src.state import State
@@ -36,6 +36,13 @@ def nodo_agente(state: State, config: RunnableConfig) -> dict:
     tolera a ausencia do campo na primeira chamada de uma thread nova,
     sem depender de quem monta o input inicial lembrar de inicializa-lo.
     """
+    # Primeira chamada de uma pergunta nova: a ultima mensagem e a
+    # HumanMessage recem-adicionada. Dentro do loop ReAct a ultima e
+    # sempre ToolMessage. Sem este reset o orcamento seria cumulativo
+    # pela thread e a 4a pergunta de uma conversa nasceria sem
+    # iteracoes, com os tool_calls descartados antes de executar.
+    primeira_do_turno = isinstance(state["messages"][-1], HumanMessage)
+
     with sessao_app() as sessao:
         prompt = prompt_repository.buscar_ativo(sessao, CHAVE_PROMPT_SISTEMA)
     if prompt is None:
@@ -45,8 +52,8 @@ def nodo_agente(state: State, config: RunnableConfig) -> dict:
         )
 
     mensagens = [SystemMessage(prompt.conteudo), *state["messages"]]
-    resposta = obter_llm().invoke(mensagens, config)
-    nova_iteracao = state.get("iteracoes", 0) + 1
+    resposta = invocar_com_timeout(mensagens, config)
+    nova_iteracao = 1 if primeira_do_turno else state.get("iteracoes", 0) + 1
 
     if nova_iteracao >= configuracao.max_iteracoes and resposta.tool_calls:
         # Substitui a resposta por uma sem tool_calls pendentes: evita

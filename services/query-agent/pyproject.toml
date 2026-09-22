@@ -14,5 +14,7 @@ dependencies = [
     "pydantic-settings>=2.6",
     "sqlalchemy>=2.0",
     "psycopg[binary]>=3.3.5",
+    "langchain-openrouter>=0.2.8",
+    "langfuse>=4.15.4",
 ]
 
