@@ -5,7 +5,8 @@ import logging
 from sqlalchemy.orm import Session
 
 from src.database.executor import ResultadoConsulta, executar_consulta
-from src.observabilidade import truncar_texto
+from src.log_stdout import truncar_texto
+from src.observability import tracing
 from src.repositories import log_repository
 from src.services import comum, log_service
 
@@ -46,6 +47,8 @@ def executar(
         ctx.erro = resultado.erro
         ctx.linhas_retornadas = resultado.total_linhas
         ctx.duracao_ms_override = resultado.duracao_ms
+
+        tracing.anotar_consulta(resultado, tentativa)
 
         if not resultado.sucesso:
             logger.warning(
