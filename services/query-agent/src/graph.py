@@ -8,33 +8,19 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 
 from src.config import configuracao
-from src.database.database import sessao_app
 from src.llm import invocar_com_timeout
-from src.repositories import prompt_repository
+from src.prompts import obter_prompt_sistema
 from src.routing import rotear
 from src.state import State
 from src.tools.registro import TOOLS
 
-CHAVE_PROMPT_SISTEMA = "agente_sql_sistema"
-
-
-class PromptNaoConfigurado(RuntimeError):
-    """Nenhuma versao ativa para CHAVE_PROMPT_SISTEMA no banco da app.
-
-    Erro de ambiente (seed nao rodado, ou prompt desativado por
-    engano), nao algo que o LLM cause ou possa corrigir - propaga como
-    excecao, mesmo espirito de ContextoInvalido em src/tools/contexto.py.
-    """
-
 
 def nodo_agente(state: State, config: RunnableConfig) -> dict:
-    """Chama o LLM com o prompt de sistema ativo e o historico atual.
+    """Chama o LLM com o prompt de sistema vigente e o historico atual.
 
-    Abre e fecha a sessao do banco da app so para buscar o prompt
-    (regra 6 do CLAUDE.md: nunca fica aberta durante a chamada ao LLM,
-    que pode levar segundos). state.get() em vez de state["iteracoes"]:
-    tolera a ausencia do campo na primeira chamada de uma thread nova,
-    sem depender de quem monta o input inicial lembrar de inicializa-lo.
+    state.get() em vez de state["iteracoes"]: tolera a ausencia do campo
+    na primeira chamada de uma thread nova, sem depender de quem monta o
+    input inicial lembrar de inicializa-lo.
     """
     # Primeira chamada de uma pergunta nova: a ultima mensagem e a
     # HumanMessage recem-adicionada. Dentro do loop ReAct a ultima e
@@ -43,15 +29,7 @@ def nodo_agente(state: State, config: RunnableConfig) -> dict:
     # iteracoes, com os tool_calls descartados antes de executar.
     primeira_do_turno = isinstance(state["messages"][-1], HumanMessage)
 
-    with sessao_app() as sessao:
-        prompt = prompt_repository.buscar_ativo(sessao, CHAVE_PROMPT_SISTEMA)
-    if prompt is None:
-        raise PromptNaoConfigurado(
-            f"Nenhum prompt ativo para a chave {CHAVE_PROMPT_SISTEMA!r}. "
-            "Rode scripts/seed_prompt.py antes de usar o grafo."
-        )
-
-    mensagens = [SystemMessage(prompt.conteudo), *state["messages"]]
+    mensagens = [SystemMessage(obter_prompt_sistema()), *state["messages"]]
     resposta = invocar_com_timeout(mensagens, config)
     nova_iteracao = 1 if primeira_do_turno else state.get("iteracoes", 0) + 1
 

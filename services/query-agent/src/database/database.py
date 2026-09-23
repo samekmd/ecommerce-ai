@@ -34,7 +34,7 @@ def sessao_app() -> Iterator[Session]:
 
     Uso:
         with sessao_app() as sessao:
-            prompt = prompt_repository.buscar_ativo(sessao, "sql_agent_system")
+            bancos = banco_repository.listar_ativos(sessao)
     """
     sessao = SessaoApp()
     sessao.begin()

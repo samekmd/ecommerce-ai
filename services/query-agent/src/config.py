@@ -119,6 +119,10 @@ class Configuracao(BaseSettings):
     langfuse_secret_key: str = ""
     langfuse_base_url: str = "https://us.cloud.langfuse.com"
     langfuse_tracing_enabled: bool = True
+    # Quanto tempo o SDK reusa o prompt em cache antes de buscar de novo.
+    # E o atraso entre mover o label na interface do Langfuse e a mudanca
+    # valer aqui.
+    langfuse_prompt_cache_ttl_segundos: int = 60
 
     # ---------------------------------------------------------------
     # Agente

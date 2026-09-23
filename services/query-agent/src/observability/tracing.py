@@ -9,6 +9,7 @@ tipo de defesa se justifica - o Langfuse e servico externo.
 import logging
 from typing import Any
 
+from src.config import configuracao
 from src.database.executor import ResultadoConsulta
 from src.observability.setup import obter_cliente, obter_handler
 from src.observability.tags import tags_da_pergunta
@@ -35,6 +36,10 @@ def config_do_grafo(thread_id: str, banco_id: int) -> dict[str, Any]:
             "langfuse_session_id": thread_id,
             "langfuse_tags": tags_da_pergunta(banco_id),
             "banco_id": banco_id,
+            # Sem isto a generation fica sem modelo no Langfuse: o SDK
+            # nao consegue extrair o nome do ChatOpenRouter e cai neste
+            # metadado (verificado - sem ele, model.name vem vazio).
+            "ls_model_name": configuracao.openrouter_model,
         }
     except Exception:
         logger.exception("Falha ao montar tracing; seguindo sem observabilidade.")
