@@ -6,7 +6,7 @@ from collections import defaultdict
 from sqlalchemy.orm import Session
 
 from src.models.coluna import Coluna
-from src.observabilidade import resumir_lista
+from src.log_stdout import resumir_lista
 from src.repositories import coluna_repository
 from src.services import comum, log_service
 from src.services.tipos import ColunaDetalhe, ResultadoDescricoes, TabelaDetalhada

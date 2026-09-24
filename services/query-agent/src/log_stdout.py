@@ -1,7 +1,9 @@
 """Decorator e helpers de logging compartilhados.
 
-So para stdout via `logging` padrao - nao tem relacao com a tabela `logs`
-do app_db (auditoria de negocio, gravada por log_service/log_repository).
+So para stdout via `logging` padrao. Nao confundir com os outros dois
+registros do projeto: a tabela `logs` do app_db (auditoria de negocio,
+gravada por log_service/log_repository) e o tracing no Langfuse (em
+src/observability/).
 """
 
 import functools

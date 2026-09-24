@@ -25,7 +25,7 @@ from sqlalchemy.exc import TimeoutError as PoolEsgotado
 
 from src.config import configuracao
 from src.database.registry import conexao_leitura, pid_do_backend
-from src.observabilidade import truncar_texto
+from src.log_stdout import truncar_texto
 
 logger = logging.getLogger(__name__)
 

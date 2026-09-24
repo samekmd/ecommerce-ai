@@ -111,6 +111,20 @@ class Configuracao(BaseSettings):
     openrouter_timeout_segundos: int = 60
 
     # ---------------------------------------------------------------
+    # Langfuse (tracing). O SDK leria LANGFUSE_* sozinho do ambiente,
+    # mas passar por aqui mantem config.py como unica fonte de verdade
+    # e da como desligar o tracing sem apagar credencial.
+    # ---------------------------------------------------------------
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_base_url: str = "https://us.cloud.langfuse.com"
+    langfuse_tracing_enabled: bool = True
+    # Quanto tempo o SDK reusa o prompt em cache antes de buscar de novo.
+    # E o atraso entre mover o label na interface do Langfuse e a mudanca
+    # valer aqui.
+    langfuse_prompt_cache_ttl_segundos: int = 60
+
+    # ---------------------------------------------------------------
     # Agente
     # ---------------------------------------------------------------
     max_iteracoes: int = 10
@@ -162,6 +176,10 @@ class Configuracao(BaseSettings):
     @property
     def statement_timeout_ms(self) -> int:
         return self.query_timeout_segundos * 1000
+
+    @property
+    def langfuse_configurado(self) -> bool:
+        return bool(self.langfuse_public_key and self.langfuse_secret_key)
 
     @property
     def timeout_cliente_segundos(self) -> int:

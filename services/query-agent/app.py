@@ -13,8 +13,9 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, Too
 from src.config import FORMATO_CHAVE_CONEXAO, configuracao
 from src.database.database import sessao_app
 from src.database.executor import FalhaDeInfraestrutura
-from src.graph import PromptNaoConfigurado, grafo
+from src.graph import grafo
 from src.logging_config import configurar_logging
+from src.observability import tracing
 from src.repositories import banco_repository
 from src.tools.contexto import ContextoInvalido
 
@@ -141,12 +142,7 @@ with st.sidebar:
 # --- area principal ---
 st.title("Agente Text-to-SQL (teste)")
 
-config = {
-    "configurable": {
-        "thread_id": st.session_state.thread_id,
-        "banco_id": st.session_state.banco_id,
-    }
-}
+config = tracing.config_do_grafo(st.session_state.thread_id, st.session_state.banco_id)
 
 if st.session_state.banco_id is not None:
     _renderizar_historico(config)
@@ -227,11 +223,6 @@ if pergunta:
             if mensagens and isinstance(mensagens[-1], AIMessage) and mensagens[-1].content:
                 st.chat_message("assistant").write(mensagens[-1].content)
 
-    except PromptNaoConfigurado:
-        st.error(
-            "Nenhum prompt de sistema ativo. Rode "
-            "`python scripts/seed_prompt.py` antes de usar o agente."
-        )
     except ContextoInvalido as erro:
         st.error(f"Erro de configuracao interna: {erro}")
     except FalhaDeInfraestrutura as erro:

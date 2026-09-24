@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.models.log import Log
-from src.observabilidade import logar_chamada
+from src.log_stdout import logar_chamada
 
 
 @logar_chamada
