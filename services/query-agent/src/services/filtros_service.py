@@ -4,7 +4,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from src.observabilidade import resumir_lista
+from src.log_stdout import resumir_lista
 from src.repositories import filtro_repository
 from src.services import comum, log_service
 from src.services.tipos import FiltroDetalhe, ResultadoFiltros

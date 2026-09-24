@@ -6,7 +6,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from src.models.tabela import Tabela
-from src.observabilidade import logar_chamada
+from src.log_stdout import logar_chamada
 
 
 @logar_chamada

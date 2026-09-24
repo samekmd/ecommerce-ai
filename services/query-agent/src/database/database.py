@@ -27,11 +27,18 @@ def sessao_app() -> Iterator[Session]:
     segundos; manter a transacao aberta nesse intervalo esbarra no
     idle_in_transaction_session_timeout do servidor.
  
+    A conexao sai do pool ja na entrada do bloco (begin + connection):
+    pool esgotado ou banco fora do ar estoura aqui, nao no meio de um
+    repository. O BEGIN no servidor continua saindo no primeiro
+    statement - o psycopg3 nao emite antes disso.
+
     Uso:
         with sessao_app() as sessao:
-            prompt = prompt_repository.buscar_ativo(sessao, "sql_agent_system")
+            bancos = banco_repository.listar_ativos(sessao)
     """
     sessao = SessaoApp()
+    sessao.begin()
+    sessao.connection()
     try:
         yield sessao
         sessao.commit()

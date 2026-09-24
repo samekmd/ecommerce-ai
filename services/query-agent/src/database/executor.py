@@ -11,6 +11,8 @@ o agente ler na proxima iteracao e corrigir sozinho.
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturoExpirou
 from dataclasses import dataclass, field
 from datetime import date, datetime, time as hora, timedelta
 from decimal import Decimal
@@ -19,11 +21,28 @@ from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import TimeoutError as PoolEsgotado
 
 from src.config import configuracao
-from src.database.registry import conexao_leitura
+from src.database.registry import conexao_leitura, pid_do_backend
+from src.log_stdout import truncar_texto
 
 logger = logging.getLogger(__name__)
+
+# Erro do Postgres para query cortada pelo statement_timeout. Vira texto
+# para o agente, nao excecao: ele consegue agir nisso escrevendo uma
+# query mais barata.
+SQLSTATE_QUERY_CANCELADA = "57014"
+
+# A execucao roda numa thread propria para que o teto de tempo cubra o
+# caminho inteiro - espera por vaga no pool, pre_ping, execucao e fetch -
+# e nao so a query, unica parte que o statement_timeout do servidor
+# alcanca. Ao estourar o teto, a conexao crua e cancelada via
+# cancel_safe() do psycopg, que e seguro chamar de outra thread: a thread
+# presa morre em ~2s e devolve a vaga. Abandonar a thread como em
+# src/llm.py nao serve aqui - o pool tem 5 vagas, e cada timeout
+# queimaria uma delas.
+_executor_consultas = ThreadPoolExecutor(thread_name_prefix="consulta_alvo")
 
 # Comandos que nunca devem passar. O usuario read-only ja barra no banco,
 # mas rejeitar antes evita round-trip e devolve mensagem mais clara.
@@ -49,6 +68,23 @@ IDENTIFICADOR_CITADO = re.compile(r'"(?:[^"]|"")*"')
 
 class SQLRejeitado(ValueError):
     """SQL barrado pela validacao, antes de chegar ao banco."""
+
+
+class FalhaDeInfraestrutura(RuntimeError):
+    """Falha que o agente nao corrige reescrevendo a query.
+
+    Excecao, e nao texto como os erros de SQL (regra 5 do CLAUDE.md):
+    reenviar a mesma query com o pool esgotado ou a conexao morta so
+    gasta iteracao e esconde o problema real de quem opera.
+    """
+
+
+class TempoDeQueryEsgotado(FalhaDeInfraestrutura):
+    """Nada voltou do servidor dentro do teto do cliente."""
+
+
+class FalhaDeConexao(FalhaDeInfraestrutura):
+    """Pool esgotado, conexao morta ou falha do driver."""
 
 
 @dataclass
@@ -148,6 +184,61 @@ def _serializar(valor: Any) -> Any:
     return str(valor)
 
 
+def _consultar(
+    chave_conexao: str,
+    sql: str,
+    limite: int,
+    conexao_crua: dict[str, Any],
+) -> tuple[list[str], list[dict[str, Any]], bool]:
+    """Abre a conexao, executa e le o resultado. Roda na thread do pool.
+
+    Publica a conexao psycopg em conexao_crua assim que a tem em maos,
+    para que a thread principal possa cancelar a query se o teto de
+    tempo estourar.
+    """
+    with conexao_leitura(chave_conexao) as conexao:
+        crua = conexao.connection.dbapi_connection
+        conexao_crua["conexao"] = crua
+        logger.info(
+            "Query iniciada em %s (pid=%s): %s",
+            chave_conexao, pid_do_backend(crua), truncar_texto(sql),
+        )
+        cursor = conexao.execute(text(sql))
+
+        if cursor.returns_rows:
+            colunas = list(cursor.keys())
+            # Busca uma linha a mais para saber se houve corte, sem
+            # precisar carregar o resultado inteiro na memoria.
+            brutas = cursor.fetchmany(limite + 1)
+            truncado = len(brutas) > limite
+            brutas = brutas[:limite]
+            linhas = [
+                {coluna: _serializar(valor) for coluna, valor in zip(colunas, linha)}
+                for linha in brutas
+            ]
+        else:
+            colunas, linhas, truncado = [], [], False
+
+    return colunas, linhas, truncado
+
+
+def _cancelar_query(conexao_crua: dict[str, Any], chave_conexao: str) -> None:
+    """Cancela a query travada para a thread presa liberar a vaga no pool."""
+    conexao = conexao_crua.get("conexao")
+    if conexao is None:
+        logger.warning(
+            "Teto de tempo estourou em %s antes de haver conexao - "
+            "espera por vaga no pool, nao query lenta",
+            chave_conexao,
+        )
+        return
+    try:
+        conexao.cancel_safe(timeout=5.0)
+        logger.warning("Query cancelada em %s por estourar o teto do cliente", chave_conexao)
+    except Exception as erro:
+        logger.error("Falha ao cancelar query em %s: %s", chave_conexao, erro)
+
+
 def executar_consulta(
     chave_conexao: str,
     sql: str,
@@ -155,8 +246,11 @@ def executar_consulta(
 ) -> ResultadoConsulta:
     """Executa SQL de leitura e devolve o resultado ja serializado.
 
-    Erros de banco viram ResultadoConsulta com sucesso=False, nunca
-    excecao: o agente precisa ler a mensagem para corrigir a query.
+    Erro de SQL vira ResultadoConsulta com sucesso=False, nunca excecao:
+    o agente precisa ler a mensagem para corrigir a query (regra 5 do
+    CLAUDE.md). Falha de infraestrutura - pool esgotado, conexao morta,
+    nada voltando dentro do teto - levanta FalhaDeInfraestrutura, porque
+    reescrever a query nao resolve nenhuma delas.
     """
     limite = max_linhas or configuracao.max_linhas_retorno
     inicio = time.perf_counter()
@@ -171,25 +265,21 @@ def executar_consulta(
             duracao_ms=int((time.perf_counter() - inicio) * 1000),
         )
 
-    try:
-        with conexao_leitura(chave_conexao) as conexao:
-            cursor = conexao.execute(text(sql_validado))
+    conexao_crua: dict[str, Any] = {}
+    futuro = _executor_consultas.submit(
+        _consultar, chave_conexao, sql_validado, limite, conexao_crua
+    )
 
-            if cursor.returns_rows:
-                colunas = list(cursor.keys())
-                # Busca uma linha a mais para saber se houve corte, sem
-                # precisar carregar o resultado inteiro na memoria.
-                brutas = cursor.fetchmany(limite + 1)
-                truncado = len(brutas) > limite
-                brutas = brutas[:limite]
-                linhas = [
-                    {coluna: _serializar(valor) for coluna, valor in zip(colunas, linha)}
-                    for linha in brutas
-                ]
-            else:
-                colunas, linhas, truncado = [], [], False
+    try:
+        colunas, linhas, truncado = futuro.result(
+            timeout=configuracao.timeout_cliente_segundos
+        )
 
         duracao = int((time.perf_counter() - inicio) * 1000)
+        logger.info(
+            "Query concluida em %s: %d linhas, %dms, truncado=%s",
+            chave_conexao, len(linhas), duracao, truncado,
+        )
         return ResultadoConsulta(
             sucesso=True,
             colunas=colunas,
@@ -200,14 +290,53 @@ def executar_consulta(
             sql=sql_validado,
         )
 
+    except FuturoExpirou:
+        _cancelar_query(conexao_crua, chave_conexao)
+        raise TempoDeQueryEsgotado(
+            f"A consulta nao respondeu em {configuracao.timeout_cliente_segundos}s "
+            f"e foi cancelada."
+        ) from None
+
+    except PoolEsgotado as erro:
+        logger.error(
+            "Pool de %s esgotado (teto de %d conexoes) apos %ds de espera",
+            chave_conexao,
+            configuracao.target_pool_size + configuracao.target_pool_max_overflow,
+            configuracao.target_pool_timeout_segundos,
+        )
+        raise FalhaDeConexao(
+            f"Sem conexao disponivel para {chave_conexao}: o pool esta no teto de "
+            f"{configuracao.target_pool_size + configuracao.target_pool_max_overflow} "
+            f"conexoes. Alguma consulta anterior nao liberou a vaga."
+        ) from erro
+
     except SQLAlchemyError as erro:
         duracao = int((time.perf_counter() - inicio) * 1000)
         original = getattr(erro, "orig", None)
-        mensagem = str(original) if original else str(erro)
-        logger.warning("Falha ao executar consulta em %s: %s", chave_conexao, mensagem)
+        sqlstate = getattr(original, "sqlstate", None)
+        mensagem = (str(original) if original else str(erro)).strip()
+
+        # Resposta do servidor sempre traz sqlstate; falha de conexao,
+        # nunca. E o unico jeito confiavel de separar "o agente pode
+        # corrigir isso" de "nao ha o que o agente faca".
+        if sqlstate is None:
+            logger.error("Conexao com %s falhou: %s", chave_conexao, mensagem)
+            raise FalhaDeConexao(f"Falha de conexao com {chave_conexao}: {mensagem}") from erro
+
+        if sqlstate == SQLSTATE_QUERY_CANCELADA:
+            mensagem = (
+                f"A consulta passou do limite de {configuracao.query_timeout_segundos}s "
+                f"no servidor e foi cancelada. Reescreva de forma mais barata: "
+                f"filtre mais, agregue no banco ou reduza o intervalo consultado."
+            )
+
+        logger.warning(
+            "Consulta em %s rejeitada pelo banco (sqlstate=%s): %s",
+            chave_conexao, sqlstate, mensagem,
+        )
         return ResultadoConsulta(
             sucesso=False,
-            erro=mensagem.strip(),
+            erro=mensagem,
             duracao_ms=duracao,
             sql=sql_validado,
         )

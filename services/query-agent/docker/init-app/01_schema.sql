@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Banco da aplicacao - agente Text-to-SQL
--- Armazena prompts versionados, metadados do banco alvo, filtros
+-- Armazena metadados do banco alvo, filtros
 -- de negocio reutilizaveis e logs de execucao do agente.
 -- =====================================================================
 
@@ -16,40 +16,6 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
-
--- =====================================================================
--- PROMPTS
--- Prompts do sistema, versionados. A troca de versao em producao e
--- feita apenas alternando a flag "ativo", sem redeploy.
--- =====================================================================
-CREATE TABLE prompts (
-    id            SERIAL PRIMARY KEY,
-    chave         TEXT        NOT NULL,
-    conteudo      TEXT        NOT NULL,
-    versao        INTEGER     NOT NULL DEFAULT 1,
-    ativo         BOOLEAN     NOT NULL DEFAULT FALSE,
-    descricao     TEXT,
-    criado_em     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    CONSTRAINT uq_prompts_chave_versao UNIQUE (chave, versao),
-    CONSTRAINT ck_prompts_versao_positiva CHECK (versao > 0),
-    CONSTRAINT ck_prompts_conteudo_nao_vazio CHECK (length(trim(conteudo)) > 0)
-);
-
-COMMENT ON TABLE  prompts             IS 'Prompts do sistema, versionados por chave';
-COMMENT ON COLUMN prompts.chave       IS 'Identificador logico do prompt, ex: sql_agent_system';
-COMMENT ON COLUMN prompts.ativo       IS 'Somente uma versao por chave pode estar ativa';
-
--- Garante no maximo um prompt ativo por chave
-CREATE UNIQUE INDEX uq_prompts_um_ativo_por_chave
-    ON prompts (chave)
-    WHERE ativo;
-
-CREATE TRIGGER trg_prompts_atualizado_em
-    BEFORE UPDATE ON prompts
-    FOR EACH ROW EXECUTE FUNCTION set_atualizado_em();
 
 
 -- =====================================================================

@@ -5,7 +5,7 @@ terem o que devolver.
 Idempotente: pode ser rodado de novo (ex.: apos docker compose down -v
 + reseed) sem duplicar bancos/tabelas/filtros ja cadastrados.
 
-Uso: PYTHONPATH=. python scripts/seed_catalogo.py
+Uso: PYTHONPATH=. uv run python scripts/seed_catalogo.py
 """
 
 from typing import Any

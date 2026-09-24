@@ -81,9 +81,15 @@ class Configuracao(BaseSettings):
     target_pool_size: int = 2
     target_pool_max_overflow: int = 3
     target_pool_recycle: int = 900
+    # Sem isso vale o default de 30s do SQLAlchemy, e pool esgotado
+    # bloqueia todo esse tempo sem log nem erro - indistinguivel de uma
+    # query lenta, medido em teste.
+    target_pool_timeout_segundos: int = 5
 
     # ---------------------------------------------------------------
-    # Groq
+    # Groq - dormant. Migrado para OpenRouter por problemas de
+    # formatacao de tool calls; campos mantidos sem uso em src/llm.py
+    # para facilitar reverter se necessario.
     # ---------------------------------------------------------------
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
@@ -94,11 +100,36 @@ class Configuracao(BaseSettings):
     groq_max_tokens: int = 512
 
     # ---------------------------------------------------------------
+    # OpenRouter
+    # ---------------------------------------------------------------
+    openrouter_api_key: str = ""
+    openrouter_model: str = "cohere/north-mini-code:free"
+    openrouter_temperature: float = 0.0
+    openrouter_max_tokens: int = 512
+    # Sem isso, uma chamada ao modelo (gratuito, sujeito a instabilidade
+    # de capacidade compartilhada) pode travar sem prazo.
+    openrouter_timeout_segundos: int = 60
+
+    # ---------------------------------------------------------------
+    # Langfuse (tracing). O SDK leria LANGFUSE_* sozinho do ambiente,
+    # mas passar por aqui mantem config.py como unica fonte de verdade
+    # e da como desligar o tracing sem apagar credencial.
+    # ---------------------------------------------------------------
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_base_url: str = "https://us.cloud.langfuse.com"
+    langfuse_tracing_enabled: bool = True
+    # Quanto tempo o SDK reusa o prompt em cache antes de buscar de novo.
+    # E o atraso entre mover o label na interface do Langfuse e a mudanca
+    # valer aqui.
+    langfuse_prompt_cache_ttl_segundos: int = 60
+
+    # ---------------------------------------------------------------
     # Agente
     # ---------------------------------------------------------------
     max_iteracoes: int = 10
     max_tabelas_por_chamada: int = 8
-    query_timeout_segundos: int = 30
+    query_timeout_segundos: int = 20
     max_linhas_retorno: int = 500
 
     # ---------------------------------------------------------------
@@ -145,6 +176,21 @@ class Configuracao(BaseSettings):
     @property
     def statement_timeout_ms(self) -> int:
         return self.query_timeout_segundos * 1000
+
+    @property
+    def langfuse_configurado(self) -> bool:
+        return bool(self.langfuse_public_key and self.langfuse_secret_key)
+
+    @property
+    def timeout_cliente_segundos(self) -> int:
+        """Teto imposto pelo cliente, acima do orcamento do servidor.
+
+        Com o servidor alcancavel quem corta e o statement_timeout, que
+        devolve 57014 e uma mensagem que o agente consegue usar. Este
+        teto cobre o caso em que resposta nenhuma volta - espera no pool,
+        pre_ping em socket morto, rede que sumiu.
+        """
+        return self.query_timeout_segundos + 2
 
     def url_do_banco_alvo(self, chave_conexao: str) -> str:
         """Resolve bancos.chave_conexao para a URL de conexao real.

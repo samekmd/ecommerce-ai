@@ -6,7 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from src.models.banco import Banco
-from src.observabilidade import logar_chamada
+from src.log_stdout import logar_chamada
 
 
 @logar_chamada

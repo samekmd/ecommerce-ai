@@ -8,7 +8,7 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
 
 from src.database.database import sessao_app
-from src.observabilidade import resumir_lista
+from src.log_stdout import resumir_lista
 from src.services import filtros_service
 from src.tools import contexto, formatacao
 

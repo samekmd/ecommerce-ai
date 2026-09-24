@@ -8,7 +8,7 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
 
 from src.database.database import sessao_app
-from src.observabilidade import truncar_texto
+from src.log_stdout import truncar_texto
 from src.services import execucao_sql_service
 from src.tools import contexto, formatacao
 
