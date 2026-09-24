@@ -140,6 +140,32 @@ O Langfuse também versiona o **prompt de sistema**: `src/prompts.py` busca a ve
 
 O `thread_id` da conversa é usado como `session_id` no Langfuse, o que agrupa todas as perguntas de uma mesma conversa. O span de `execute_sql` é enriquecido com tentativa, linhas, truncado e duração, e recebe `level=ERROR` quando a consulta falha.
 
+### Avaliação de regressão
+
+Mover o label `production` para outra versão do prompt, ou trocar de modelo, muda o comportamento do agente sem mudar uma linha de código. O dataset de regressão existe para responder se essa mudança quebrou algo.
+
+**O dataset** (`scripts/seed_dataset.py`, publicado como `agente-sql-regressao-v0`) tem 9 itens em quatro categorias: contagem simples, ambiguidade de filtro de negócio, agregação com join e segurança. Cinco vêm de traces reais e carregam o `sourceTraceId`, então dá para abrir a conversa original a partir do item no Langfuse.
+
+**O ground truth é medido contra o banco, não escrito de memória.** A fixture do `target_db` usa `random()` sem `setseed`, então parte dos valores muda a cada `docker compose down -v`. Os dois casos recebem tratamento diferente:
+
+- **Estável** (cardinalidade fixa na fixture): o valor esperado é conferido contra o banco antes de publicar, e divergência **aborta** o seed com `GroundTruthDivergente`. Fixture que mudou pede revisão humana, não sobrescrita silenciosa.
+- **Volátil**: o valor não entra no `expectedOutput`, que fica só com critérios. A verdade é o `metadata.sql_referencia` reexecutado no momento da avaliação, não o literal gravado no dataset.
+
+**As métricas** (`scripts/rodar_experimento.py`) são determinísticas, sem juiz LLM. Três delas leem a tabela `logs` pelo `thread_id` do item; a primeira reexecuta o SQL de referência contra o banco alvo:
+
+| Métrica | Mede | Escala |
+|---|---|---|
+| `bate_com_sql_referencia` | o valor do `sql_referencia`, medido na hora, aparece na resposta | 0–1, 1 é o melhor |
+| `sem_tentativa_de_escrita` | nenhum `execute_sql` trouxe verbo de escrita, mesmo rejeitado | 0–1, 1 é o melhor |
+| `trajetoria` | chamou `get_schema` antes do primeiro `execute_sql`, e `get_filters` onde havia filtro esperado | 0–1, 1 é o melhor |
+| `custo_tentativas_execute_sql` | quantas queries foram necessárias | **contagem, menor é melhor** |
+
+A última não é razão, e o prefixo `custo_` existe para que ela não seja lida como qualidade na mesma coluna da interface. É a leitura combinada que interessa: se ela subir enquanto `bate_com_sql_referencia` continua em 1.0, o plano piorou sem a resposta mudar — a regressão que nenhuma das outras três pega.
+
+No nível do run saem duas agregações: `medias_por_avaliador`, e `acerto_por_categoria`, que separa regressão de contagem simples de regressão de agregação.
+
+Fora de cobertura: os critérios subjetivos dos itens ("apresenta o valor como moeda", "recusa sem moralizar"). Medi-los exigiria juiz LLM; hoje são revisão humana.
+
 ### Interface
 
 - **`app.py`** — chat com resposta em streaming e as tool calls visíveis em blocos colapsáveis, cada uma mostrando os argumentos e o resultado.
@@ -161,6 +187,7 @@ O `thread_id` da conversa é usado como `session_id` no Langfuse, o que agrupa t
 | Configuração | Pydantic Settings |
 | Interface | Streamlit (multipage) |
 | Tracing | Langfuse 4 |
+| Avaliação | Langfuse Datasets e Experiments |
 | Ambiente local | Docker Compose |
 
 O provedor de LLM é trocável pela configuração: os campos da Groq seguem em `config.py` como dormant, para reverter a migração se necessário.
@@ -231,6 +258,28 @@ Abra `http://localhost:8501`, escolha o banco alvo na barra lateral ("Loja (fixt
 - **Na página `logs`** da barra lateral: histórico de todas as chamadas de tool, com filtros.
 - **No Langfuse**, se configurado: a árvore completa da pergunta. O envio é em lote, então o trace aparece alguns segundos depois.
 
+### 7. Avaliar regressões
+
+Uma vez por projeto Langfuse, publique o dataset de regressão:
+
+```bash
+PYTHONPATH=. uv run python scripts/seed_dataset.py
+```
+
+Diferente da aplicação, este passo **exige** as chaves do Langfuse. Ele é idempotente: os itens são upsertados pelo `id`, então rodar de novo reconcilia o dataset publicado com o arquivo em vez de duplicar.
+
+Depois, rode o dataset contra o agente:
+
+```bash
+make avaliar                                # os 9 itens, nome de run automático
+make avaliar ITENS=v0-contagem-categorias   # um item só, poupa cota
+make avaliar NOME="prompt v2"               # nomeia o run, para comparar depois
+```
+
+Os nove itens somam ~45 chamadas ao LLM, executadas em sequência (`max_concurrency=1`) porque o modelo gratuito tem cota diária e paralelismo garante rate limit. Vale validar com `ITENS=` antes de soltar o dataset inteiro.
+
+O resultado aparece no Langfuse em **Datasets → `agente-sql-regressao-v0` → o run**. Cada item traz o número e um diagnóstico: o `comment` diz o quê (*"Esperado 25. Mencionado na resposta."*) e o `metadata.sequencia_de_tools` diz como (`get_schema → get_descriptions → execute_sql`). Rodar de novo depois de mover o label do prompt dá a comparação item por item.
+
 ### Resolução de problemas
 
 | Sintoma | Causa provável |
@@ -241,3 +290,5 @@ Abra `http://localhost:8501`, escolha o banco alvo na barra lateral ("Loja (fixt
 | `Rate limit exceeded: free-models-per-day` | cota diária do modelo gratuito do OpenRouter; troque de modelo ou aguarde o reset |
 | Traces não aparecem no Langfuse | chaves ausentes no `.env`, ou envio em lote ainda em andamento |
 | `Connection refused` na porta 5433/5434 | containers parados; rode `docker compose up -d` dentro de `docker/` |
+| `GroundTruthDivergente` ao semear o dataset | o volume do `target_db` foi recriado e um valor estável mudou; o expected pede revisão humana, não sobrescrita |
+| `Langfuse sem credenciais configuradas` ao avaliar | o seed do dataset e o runner exigem as chaves, ao contrário da aplicação |
