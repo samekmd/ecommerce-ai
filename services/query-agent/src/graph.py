@@ -1,0 +1,66 @@
+"""Grafo do agente Text-to-SQL: no do agente + ToolNode + roteamento."""
+
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
+from langgraph.prebuilt import ToolNode
+
+from src.config import configuracao
+from src.llm import invocar_com_timeout
+from src.prompts import obter_prompt_sistema
+from src.routing import rotear
+from src.state import State
+from src.tools.registro import TOOLS
+
+
+def nodo_agente(state: State, config: RunnableConfig) -> dict:
+    """Chama o LLM com o prompt de sistema vigente e o historico atual.
+
+    state.get() em vez de state["iteracoes"]: tolera a ausencia do campo
+    na primeira chamada de uma thread nova, sem depender de quem monta o
+    input inicial lembrar de inicializa-lo.
+    """
+    # Primeira chamada de uma pergunta nova: a ultima mensagem e a
+    # HumanMessage recem-adicionada. Dentro do loop ReAct a ultima e
+    # sempre ToolMessage. Sem este reset o orcamento seria cumulativo
+    # pela thread e a 4a pergunta de uma conversa nasceria sem
+    # iteracoes, com os tool_calls descartados antes de executar.
+    primeira_do_turno = isinstance(state["messages"][-1], HumanMessage)
+
+    mensagens = [SystemMessage(obter_prompt_sistema()), *state["messages"]]
+    resposta = invocar_com_timeout(mensagens, config)
+    nova_iteracao = 1 if primeira_do_turno else state.get("iteracoes", 0) + 1
+
+    if nova_iteracao >= configuracao.max_iteracoes and resposta.tool_calls:
+        # Substitui a resposta por uma sem tool_calls pendentes: evita
+        # deixar uma AIMessage pedindo uma tool que nunca vai rodar como
+        # ultima mensagem do grafo (rotear ja cortaria por iteracoes,
+        # mas a mensagem ficaria confusa para quem le a transcricao).
+        aviso = (
+            f"\n\n[Limite de {configuracao.max_iteracoes} iteracoes atingido "
+            "antes de concluir a consulta; a resposta acima pode estar incompleta.]"
+        )
+        resposta = AIMessage(content=(resposta.content or "") + aviso)
+
+    return {"messages": [resposta], "iteracoes": nova_iteracao}
+
+
+def construir_grafo() -> CompiledStateGraph:
+    """Monta e compila o grafo do agente Text-to-SQL.
+
+    Funcao (nao so um singleton de modulo) para permitir compilar
+    variantes em teste - outro checkpointer, ou obter_llm() com
+    monkeypatch aplicado antes de chamar esta funcao.
+    """
+    builder = StateGraph(State)
+    builder.add_node("agente", nodo_agente)
+    builder.add_node("tools", ToolNode(TOOLS))
+    builder.add_edge(START, "agente")
+    builder.add_conditional_edges("agente", rotear, {"tools": "tools", END: END})
+    builder.add_edge("tools", "agente")
+    return builder.compile(checkpointer=InMemorySaver())
+
+
+grafo = construir_grafo()

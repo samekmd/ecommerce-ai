@@ -1,0 +1,52 @@
+services:
+  app_db:
+    image: postgres:16-alpine
+    container_name: text2sql_app_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${APP_DB_USER:-text2sql}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-text2sql}
+      POSTGRES_DB: ${APP_DB_NAME:-text2sql_app}
+      TZ: America/Sao_Paulo
+      PGTZ: America/Sao_Paulo
+    ports:
+      - "${APP_DB_PORT:-5433}:5432"
+    volumes:
+      - app_db_data:/var/lib/postgresql/data
+      - ./init-app:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${APP_DB_USER:-text2sql} -d ${APP_DB_NAME:-text2sql_app}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Banco alvo ficticio, consultado pelo agente.
+  # Em producao este servico e substituido pelo banco real da empresa.
+  target_db:
+    image: postgres:16-alpine
+    container_name: text2sql_target_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${TARGET_DB_USER:-loja_admin}
+      POSTGRES_PASSWORD: ${TARGET_DB_PASSWORD:-loja_admin}
+      POSTGRES_DB: ${TARGET_DB_NAME:-loja}
+      TZ: America/Sao_Paulo
+      PGTZ: America/Sao_Paulo
+    ports:
+      - "${TARGET_DB_PORT:-5434}:5432"
+    volumes:
+      - target_db_data:/var/lib/postgresql/data
+      - ./init-target:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TARGET_DB_USER:-loja_admin} -d ${TARGET_DB_NAME:-loja}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  app_db_data:
+    name: text2sql_app_db_data
+  target_db_data:
+    name: text2sql_target_db_data
