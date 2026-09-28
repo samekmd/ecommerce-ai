@@ -139,12 +139,16 @@ Para valer a pena seriam necessárias duas coisas ao mesmo tempo: um modelo pago
 
 ## Ambiente
 
+A partir da raiz do monorepo (`ecommerce-ai/`), onde ficam `.env` e `docker/`:
+
 ```bash
 cp .env.example .env
-cd docker && docker compose up -d
+docker compose --env-file .env -f docker/docker-compose.yml up -d
 ```
 
-Sobem `app_db` (5433, catálogo vazio) e `target_db` (5434, e-commerce fictício com 10 tabelas e ~13 mil linhas). Os scripts de `init-*/` rodam só na primeira criação do volume; para reaplicar, `docker compose down -v`.
+O `--env-file` é necessário: sem ele o Compose procura `.env` em `docker/` e sobe com os defaults do YAML, ignorando o `.env` da raiz.
+
+Sobem `app_db` (5433, catálogo vazio) e `target_db` (5434, e-commerce fictício com 10 tabelas e ~13 mil linhas). Os scripts de `init-*/` rodam só na primeira criação do volume; para reaplicar, `docker compose down -v`. Pelo mesmo motivo, mudar `APP_DB_PASSWORD` num volume existente não altera a senha do usuário — gera `password authentication failed`. Corrija com `docker exec text2sql_app_db psql -U text2sql -d text2sql_app -c "ALTER USER text2sql PASSWORD '...'"` (o socket local não pede senha).
 
 ## Teste de drift dos modelos
 

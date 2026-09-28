@@ -217,8 +217,10 @@ As chaves do Langfuse são opcionais: sem elas o tracing fica desligado e a apli
 
 ### 2. Subir os bancos
 
+Na raiz do monorepo (`ecommerce-ai/`), onde ficam `.env` e `docker/`:
+
 ```bash
-cd docker && docker compose up -d
+docker compose --env-file .env -f docker/docker-compose.yml up -d
 ```
 
 Sobem dois containers: `app_db` na porta 5433 (catálogo vazio) e `target_db` na 5434 (a loja fictícia, já populada). Os scripts de `init-app/` e `init-target/` rodam **apenas na primeira criação do volume** — para reaplicá-los, use `docker compose down -v` e suba de novo.
@@ -289,6 +291,7 @@ O resultado aparece no Langfuse em **Datasets → `agente-sql-regressao-v0` → 
 | `Falha de infraestrutura no banco alvo` | pool esgotado, conexão morta ou consulta sem resposta; o log do terminal mostra o estado do pool |
 | `Rate limit exceeded: free-models-per-day` | cota diária do modelo gratuito do OpenRouter; troque de modelo ou aguarde o reset |
 | Traces não aparecem no Langfuse | chaves ausentes no `.env`, ou envio em lote ainda em andamento |
-| `Connection refused` na porta 5433/5434 | containers parados; rode `docker compose up -d` dentro de `docker/` |
+| `Connection refused` na porta 5433/5434 | containers parados; rode `docker compose --env-file .env -f docker/docker-compose.yml up -d` na raiz |
+| `password authentication failed for user "text2sql"` | o volume foi criado com outra senha (`POSTGRES_PASSWORD` só vale na primeira inicialização); rode `docker exec text2sql_app_db psql -U text2sql -d text2sql_app -c "ALTER USER text2sql PASSWORD '<APP_DB_PASSWORD>'"` |
 | `GroundTruthDivergente` ao semear o dataset | o volume do `target_db` foi recriado e um valor estável mudou; o expected pede revisão humana, não sobrescrita |
 | `Langfuse sem credenciais configuradas` ao avaliar | o seed do dataset e o runner exigem as chaves, ao contrário da aplicação |
