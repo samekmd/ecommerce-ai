@@ -1,8 +1,9 @@
 -- =====================================================================
 -- Banco alvo ficticio - loja de e-commerce
--- Dados de negocio ficticios consultados apenas via SQL cru pelo
--- agente. Sem atualizado_em/trigger: e um banco populado uma unica vez
--- por 02_dados.sql, nunca atualizado em producao por nenhum processo.
+-- Dados de negocio ficticios, populados por 02_dados.sql. O query-agent
+-- so le (SQL cru); o ops-agent insere produtos, fornecedores, categorias
+-- e cupons, sem UPDATE nem DELETE. Sem atualizado_em/trigger: nenhum
+-- processo altera linhas existentes.
 -- =====================================================================
 
 SET client_encoding = 'UTF8';
