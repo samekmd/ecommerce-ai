@@ -1,0 +1,35 @@
+.alerta {
+  padding: var(--espaco-3);
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: var(--raio);
+  margin-bottom: var(--espaco-3);
+  background: var(--cor-superficie);
+}
+
+.alerta ul {
+  margin: 0;
+  padding-left: var(--espaco-4);
+}
+
+.titulo {
+  margin: 0 0 var(--espaco-1);
+  font-weight: 600;
+}
+
+.erro {
+  border-color: var(--cor-erro);
+}
+
+.aviso {
+  border-color: var(--cor-aviso);
+  background: var(--cor-aviso-fundo);
+}
+
+.sucesso {
+  border-color: var(--cor-sucesso);
+}
+
+.info {
+  border-color: var(--cor-destaque);
+}
