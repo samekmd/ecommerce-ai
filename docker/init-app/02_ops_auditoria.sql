@@ -18,6 +18,10 @@ CREATE TABLE ops_interpretacoes (
     -- Categoria do erro (ex.: retries_esgotados), nunca a mensagem da excecao.
     erro        TEXT,
     duracao_ms  INTEGER     NOT NULL,
+    -- Liga a auditoria ao trace no Langfuse e permite medir a qualidade
+    -- por versao de prompt. Nulos com tracing desligado ou prompt fallback.
+    trace_id       TEXT,
+    prompt_versao  INTEGER,
     criado_em   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     -- Ou o agente propos (tipo), ou falhou (erro); nunca os dois.
