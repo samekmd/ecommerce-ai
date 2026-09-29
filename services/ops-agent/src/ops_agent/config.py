@@ -121,13 +121,16 @@ class Configuracao(BaseSettings):
     ops_cors_origens: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
     # ---------------------------------------------------------------
-    # Langfuse (tracing; futuramente o system prompt). Mesma conta do
+    # Langfuse (tracing e system prompt versionado). Mesma conta do
     # query-agent, por isso sem prefixo.
     # ---------------------------------------------------------------
     langfuse_public_key: str = ""
     langfuse_secret_key: SecretStr = SecretStr("")
     langfuse_base_url: str = "https://us.cloud.langfuse.com"
     langfuse_tracing_enabled: bool = True
+    # Quanto tempo o SDK reusa o prompt em cache antes de buscar de novo: e o
+    # atraso entre mover o label no Langfuse e a mudanca valer aqui.
+    langfuse_prompt_cache_ttl_segundos: int = Field(default=60, ge=0)
 
     # ---------------------------------------------------------------
     @field_validator("ambiente")

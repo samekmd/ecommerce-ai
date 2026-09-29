@@ -119,5 +119,5 @@ def test_verificar_conexoes_e_recriar_engine_apos_encerrar():
         segunda = await verificar_conexoes()
         return primeira, segunda
 
-    esperado = {"leitura": True, "escrita": True}
+    esperado = {"leitura": True, "escrita": True, "app": True}
     assert rodar(cenario) == (esperado, esperado)

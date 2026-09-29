@@ -211,6 +211,26 @@ def test_tipo_da_interpretacao():
 
 def test_resposta_serializa_proposta_concreta():
     resposta = RespostaInterpretar(
-        tipo="produto", proposta=ProdutoProposta(nome="Camisa", preco="100"), avisos=[]
+        interpretacao_id=None,
+        tipo="produto",
+        proposta=ProdutoProposta(nome="Camisa", preco="100"),
+        avisos=[],
     )
     assert resposta.model_dump(mode="json")["proposta"]["preco"] == "100"
+
+
+@pytest.mark.parametrize("classe", PROPOSTAS)
+def test_schema_de_proposta_sem_regex(classe):
+    # O schema padrao de Decimal traz um regex com lookahead que derrubou o
+    # endpoint da NVIDIA (502) ao converter a output tool. O schema que vai
+    # ao LLM precisa ser portavel entre provedores.
+    import json
+
+    assert '"pattern"' not in json.dumps(classe.model_json_schema())
+
+
+def test_numero_da_proposta_continua_decimal():
+    proposta = ProdutoProposta(nome="Camisa", preco=100.5)
+    assert proposta.preco == Decimal("100.5")
+    with pytest.raises(ValidationError):
+        ProdutoProposta(nome="Camisa", preco=0)

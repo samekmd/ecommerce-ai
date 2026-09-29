@@ -1,17 +1,28 @@
-"""Conexao e sessao com o banco de negocio. Nenhuma query mora aqui."""
+"""Conexao e sessao com os bancos. Nenhuma query mora aqui."""
 
 import logging
 
 from sqlalchemy import text
 
+from ops_agent.database.app import _fabrica_de_sessoes_app, obter_engine_app, sessao_app
 from ops_agent.database.escrita import _fabrica_de_sessoes, obter_engine_escrita, sessao_escrita
 from ops_agent.database.leitura import obter_engine_leitura, sessao_leitura
 
-__all__ = ["encerrar_engines", "sessao_escrita", "sessao_leitura", "verificar_conexoes"]
+__all__ = [
+    "encerrar_engines",
+    "sessao_app",
+    "sessao_escrita",
+    "sessao_leitura",
+    "verificar_conexoes",
+]
 
 logger = logging.getLogger(__name__)
 
-_ENGINES = {"leitura": obter_engine_leitura, "escrita": obter_engine_escrita}
+_ENGINES = {
+    "leitura": obter_engine_leitura,
+    "escrita": obter_engine_escrita,
+    "app": obter_engine_app,
+}
 
 
 async def verificar_conexoes() -> dict[str, bool]:
@@ -41,3 +52,4 @@ async def encerrar_engines() -> None:
             logger.info("Engine de %s encerrada", nome)
         obter.cache_clear()
     _fabrica_de_sessoes.cache_clear()
+    _fabrica_de_sessoes_app.cache_clear()

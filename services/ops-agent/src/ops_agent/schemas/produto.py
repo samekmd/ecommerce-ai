@@ -10,6 +10,7 @@ from ops_agent.schemas.comum import (
     CriadoBase,
     IdPositivo,
     ModeloBase,
+    NumeroProposta,
     Preco,
     PropostaBase,
     Quantidade,
@@ -32,7 +33,7 @@ def detectar_mime(conteudo: bytes) -> str | None:
 
 class ProdutoProposta(PropostaBase):
     nome: str = Field(description="Nome do produto, sem quantidade nem preco.")
-    preco: Decimal | None = Field(
+    preco: NumeroProposta | None = Field(
         default=None,
         gt=0,
         description=(

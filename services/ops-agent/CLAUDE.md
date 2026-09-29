@@ -32,7 +32,12 @@ banco ◄─ repositories ◄─ services ◄─ POST /produtos (etc.) ◄─ Ca
 src/ops_agent/
 ├── config.py            # única fonte de configuração (único módulo que lê ambiente/.env)
 ├── main.py              # criar_app(): FastAPI, CORS, lifespan, tratadores de erro
-├── api/rotas/           # interpretar, produtos, fornecedores, categorias, cupons
+├── api/
+│   ├── dependencias.py  # headers X-Usuario, X-Interpretacao-Id, Idempotency-Key
+│   ├── erros.py         # exceção → status HTTP, formato {"erros": [{campo, mensagem}]}
+│   ├── limite_corpo.py  # middleware ASGI: 413 antes de decodificar base64 gigante
+│   └── rotas/           # interpretar, produtos, fornecedores, categorias, cupons, saude;
+│                        # _cadastro.py: idempotência + service + auditoria
 ├── agente/
 │   ├── agente.py        # instância do Agent: modelo, output_type, tools, instruções
 │   ├── deps.py          # dependências injetadas via RunContext
@@ -40,12 +45,25 @@ src/ops_agent/
 │   └── tools/           # categorias.py, fornecedores.py, cupons.py
 ├── schemas/             # comum.py, produto.py, fornecedor.py, categoria.py, cupom.py,
 │                        # interpretacao.py (união das propostas + PedidoEsclarecimento)
-├── services/            # regra de cadastro: validação, unicidade, geração de SKU, transação
+├── services/            # regra de cadastro: validação, unicidade, geração de SKU, transação;
+│                        # erros.py (constraint → campo), auditoria.py (app_db)
 ├── repositories/        # queries; recebem a sessão, nunca a criam
-├── models/              # SQLAlchemy das 5 tabelas que o serviço toca, espelhando o DDL
-└── database/            # engines e sessões: leitura (tools) e escrita (services)
-tests/  unit/ · agente/ (TestModel, sem rede) · evals/ (LLM real, fora do CI de PR)
+├── models/              # SQLAlchemy das 5 tabelas do banco de negócio, espelhando o DDL;
+│                        # auditoria.py: tabelas ops_* do app_db (BaseApp separada)
+├── database/            # engine.py (fábrica comum); leitura (tools), escrita (services),
+│                        # app (auditoria)
+└── observabilidade/     # setup.py (cliente Langfuse, instrument_all), tracing.py (trace por
+                         # interpretação)
+scripts/seed_prompt.py   # publica a 1ª versão do system prompt no Langfuse
+tests/  unit/ · agente/ (FunctionModel, sem rede) · api/ (TestClient) ·
+        evals/ (LLM real, fora do CI de PR)
 ```
+
+Rodar: `make api` (em `services/ops-agent`; `PORTA=` muda a porta padrão 8001), que executa
+`uvicorn ops_agent.main:criar_app --factory --reload` (sem `app` global no import).
+Testes: `uv run --package ops-agent pytest -q` (precisa do docker compose de pé; sem banco, os
+testes de integração são pulados). Nada fica gravado: escrita em savepoint com rollback, auditoria
+apagada no teardown.
 
 Dependência: `api → services → repositories → models → database → config` e
 `api → agente → tools → repositories`. `schemas/` não importa nenhuma camada. Nunca inverta.
@@ -124,23 +142,62 @@ Tools devolvem dado enxuto (sem timestamps); erro de negócio vira texto para o 
 baixa. **Nunca cria categoria implicitamente**: se nada encaixa, `categoria_id = None` com sugestão
 no aviso. Criar categoria é uma intenção própria.
 
-**System prompt** (`agente/prompts/sistema.py`): papel, entidades, não inventar IDs/CNPJ/SKU, usar
-tools antes de preencher FKs, cupom só percentual, português. Não repete os schemas (chegam pelo
-output_type). Data de hoje entra por instrução dinâmica. Pendente: mover para o Langfuse.
+**System prompt**: papel, entidades, não inventar IDs/CNPJ/SKU, usar tools antes de preencher FKs,
+cupom só percentual, português. Não repete os schemas (chegam pelo output_type). Data de hoje
+entra por instrução dinâmica, depois do prompt.
+- **Versionado no Langfuse**: prompt `ops_agente_sistema`, label `production`. Trocar de versão é
+  mover o label na interface, sem redeploy (atraso = `LANGFUSE_PROMPT_CACHE_TTL_SEGUNDOS`).
+- `PROMPT_SISTEMA_PADRAO` em `agente/prompts/sistema.py` **não** é a fonte de verdade: é a
+  semente (`uv run --package ops-agent python scripts/seed_prompt.py`, que não publica se já
+  existir; `--forcar` cria nova versão) e o fallback quando o Langfuse está desligado ou fora.
+  Editar o prompt = nova versão no Langfuse, não mudar este arquivo.
+- Buscado uma vez por interpretação (`asyncio.to_thread`: o SDK é síncrono), guardado em
+  `deps.prompt_sistema`: todas as chamadas ao LLM do run usam a mesma versão. Nunca levanta.
+
+## Observabilidade (Langfuse)
+
+- OpenTelemetry: `Agent.instrument_all()` em `criar_app()` quando há credenciais; o exporter do
+  cliente Langfuse recebe os spans do run, de cada chamada ao LLM e de cada tool.
+- Cada `/interpretar` abre o span raiz `interpretar` (trace `ops-interpretar`) com `user_id`
+  (X-Usuario), tags `ops-agent` e `modelo-<id>`, e `propagate_attributes(prompt=...)`: a
+  generation fica ligada à versão do prompt (métricas por versão). Prompt fallback não é ligado.
+- `ops_interpretacoes.trace_id` e `prompt_versao` ligam a auditoria ao trace e permitem comparar
+  proposta × confirmação por versão de prompt.
+- Falha de observabilidade nunca derruba a requisição (`observabilidade/tracing.py` é o único
+  lugar com esse `except` amplo); exceção da aplicação atravessa. Erro no trace vai como
+  categoria (`retries_esgotados`...), nunca a mensagem da exceção.
+- Testes nunca falam com o Langfuse real: `tests/conftest.py` zera `LANGFUSE_PUBLIC_KEY`; os
+  testes de tracing usam um cliente com `InMemorySpanExporter`.
 
 ## API
 
 | Rota | Faz |
 |---|---|
-| `POST /api/v1/interpretar` | `{mensagem}` → `{tipo, proposta, avisos}` |
-| `POST /api/v1/{produtos,fornecedores,categorias,cupons}` | `XCadastro` → grava → `XCriado` |
-| `GET /api/v1/categorias`, `/fornecedores?termo=`, `/produtos/sku-sugerido` | apoio ao formulário |
-| `GET /health`, `GET /ready` | liveness (sem banco) e readiness (checa o banco) |
+| `POST /api/v1/interpretar` | `{mensagem}` → `{interpretacao_id, tipo, proposta, avisos}` |
+| `POST /api/v1/{produtos,fornecedores,categorias,cupons}` | `XCadastro` → grava → 201 `XCriado` |
+| `GET /api/v1/categorias`, `/fornecedores?termo=`, `/produtos/sku-sugerido?categoria_id=` | apoio ao formulário |
+| `GET /health`, `GET /ready` | liveness (sem banco) e readiness (leitura, escrita e app_db) |
 
-- Agente via `agent.run` (async). Gravação aceita `Idempotency-Key`.
-- Violação de UNIQUE/CHECK vira 409/422 **com o nome do campo**, mapeado pelo nome da constraint
-  (`uq_produtos_sku` → `sku`). Por isso as constraints têm nome explícito no DDL.
-- Erro inesperado nunca devolve a mensagem da exceção ao cliente.
+- Headers: `X-Usuario` obrigatório (identifica na auditoria; **não é autenticação**).
+  Nos POSTs de cadastro, opcionais: `X-Interpretacao-Id` (o id devolvido pelo `/interpretar`) e
+  `Idempotency-Key` (repetição devolve a resposta original sem gravar). Headers, não corpo:
+  `XCadastro` tem `extra="forbid"` e continua sendo o contrato puro do formulário.
+- Erros de formulário: `{"erros": [{"campo", "mensagem"}]}`. 409 conflito, 422 validação (o valor
+  enviado nunca é ecoado), 413 corpo grande. Violação de UNIQUE/CHECK/FK é mapeada pelo nome da
+  constraint (`uq_produtos_sku` → `sku`); um teste confere que toda constraint mapeada existe.
+- Agente: 502 se não produziu proposta válida (retries/limite), 503 se LLM ou banco caíram.
+- Erro inesperado: 500 `{"erro": "Erro interno"}`, nunca a mensagem da exceção.
+
+## Auditoria (`docker/init-app/02_ops_auditoria.sql`)
+
+- `ops_interpretacoes`: usuário, frase, modelo, `tipo` + `proposta` (JSONB) **ou** `erro`
+  (categoria, nunca a mensagem), duração.
+- `ops_cadastros`: `interpretacao_id`, entidade, payload confirmado (imagem só `{mime,
+  tamanho_bytes}`), resultado (`criado|conflito|invalido|erro`), campo do erro, chave de
+  idempotência e resposta. Índice único parcial: só cadastro `criado` reserva a chave.
+- Falha de auditoria **não derruba a requisição** (não há transação entre bancos): vira log de
+  erro. Exceção: a consulta de idempotência, que falha alto para não duplicar cadastro.
+- Registrada nas rotas, não no agente: `agente.interpretar()` só devolve a `Interpretacao`.
 
 ## Restrições invioláveis
 

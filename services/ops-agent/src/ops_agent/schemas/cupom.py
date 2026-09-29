@@ -4,7 +4,14 @@ from typing import Annotated
 
 from pydantic import BeforeValidator, Field, model_validator
 
-from ops_agent.schemas.comum import CadastroBase, CriadoBase, ModeloBase, Percentual, PropostaBase
+from ops_agent.schemas.comum import (
+    CadastroBase,
+    CriadoBase,
+    ModeloBase,
+    NumeroProposta,
+    Percentual,
+    PropostaBase,
+)
 
 
 def normalizar_codigo(valor: object) -> object:
@@ -12,16 +19,18 @@ def normalizar_codigo(valor: object) -> object:
     return valor.strip().upper() if isinstance(valor, str) else valor
 
 
-CodigoCupom = Annotated[
-    str, BeforeValidator(normalizar_codigo), Field(pattern=r"^[A-Z0-9_-]{3,30}$")
-]
+# Compartilhado com a tool verificar_codigo_cupom: o agente avisa sobre o
+# formato antes de propor algo que o formulario vai recusar.
+PADRAO_CODIGO_CUPOM = r"^[A-Z0-9_-]{3,30}$"
+
+CodigoCupom = Annotated[str, BeforeValidator(normalizar_codigo), Field(pattern=PADRAO_CODIGO_CUPOM)]
 
 
 class CupomProposta(PropostaBase):
     codigo: str | None = Field(
         default=None, description="Codigo do cupom como citado (ex.: BLACK10). Null se ausente."
     )
-    percentual_desconto: Decimal | None = Field(
+    percentual_desconto: NumeroProposta | None = Field(
         default=None,
         gt=0,
         le=100,
@@ -69,4 +78,5 @@ class VerificacaoCodigoCupom(ModeloBase):
     """Resultado de verificar_codigo_cupom."""
 
     codigo: str
+    formato_valido: bool
     existe: bool

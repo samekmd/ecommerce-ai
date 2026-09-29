@@ -8,6 +8,10 @@ dependencies = [
     "pydantic-settings>=2.7",
     "sqlalchemy[asyncio]>=2.0",
     "psycopg[binary]>=3.2",
+    "pydantic-ai-slim[openai]>=2.51.0",
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.54.0",
+    "langfuse>=4.15.6",
 ]
 
 [build-system]

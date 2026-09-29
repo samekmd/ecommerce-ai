@@ -1,5 +1,6 @@
 """Saida do agente e contrato do POST /interpretar."""
 
+import uuid
 from typing import Literal
 
 from pydantic import Field
@@ -51,6 +52,9 @@ class RequisicaoInterpretar(ModeloBase):
 
 
 class RespostaInterpretar(ModeloBase):
+    # Reenviado pelo formulario em X-Interpretacao-Id; liga proposta e
+    # confirmacao na auditoria. None se a auditoria falhou.
+    interpretacao_id: uuid.UUID | None
     tipo: TipoInterpretacao
     proposta: Interpretacao
     avisos: list[str]

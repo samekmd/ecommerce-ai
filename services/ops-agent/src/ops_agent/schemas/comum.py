@@ -8,7 +8,7 @@ import re
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, WithJsonSchema
 
 # Teto do INTEGER do Postgres: acima disso o INSERT falharia com erro de
 # overflow em vez de um 422 com o nome do campo.
@@ -86,6 +86,13 @@ def _validar_uf(valor: str) -> str:
 def _maiusculas(valor: object) -> object:
     return valor.strip().upper() if isinstance(valor, str) else valor
 
+
+# Valor numerico que o LLM preenche: valida como Decimal, mas o JSON schema
+# e so "number". O schema padrao de Decimal inclui uma alternativa string
+# com regex de lookahead que derruba provedores ao converter a tool (medido:
+# 502 no endpoint da NVIDIA via OpenRouter). Os *Cadastro seguem com Decimal
+# puro: o formulario pode mandar string.
+NumeroProposta = Annotated[Decimal, WithJsonSchema({"type": "number"})]
 
 Preco = Annotated[Decimal, Field(gt=0, max_digits=10, decimal_places=2)]
 Percentual = Annotated[Decimal, Field(gt=0, le=100, max_digits=5, decimal_places=2)]
