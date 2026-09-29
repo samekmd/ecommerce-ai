@@ -1,0 +1,43 @@
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  margin-bottom: var(--espaco-3);
+}
+
+.rotulo {
+  font-weight: 500;
+}
+
+.obrigatorio {
+  color: var(--cor-erro);
+}
+
+.dica {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--cor-texto-suave);
+}
+
+.erro {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--cor-erro);
+}
+
+.campo :is(input:not([type='file']), select, textarea) {
+  padding: var(--espaco-2);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+}
+
+.campo :is(input, select, textarea)[aria-invalid='true'] {
+  border-color: var(--cor-erro);
+}
+
+.campo :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--cor-destaque);
+  outline-offset: 1px;
+}

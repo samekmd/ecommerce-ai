@@ -1,0 +1,28 @@
+.carregando {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  color: var(--cor-texto-suave);
+  margin: var(--espaco-2) 0;
+}
+
+.spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid var(--cor-borda);
+  border-top-color: var(--cor-destaque);
+  border-radius: 50%;
+  animation: girar 0.8s linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 3s;
+  }
+}

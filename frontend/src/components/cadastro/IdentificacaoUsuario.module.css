@@ -1,0 +1,12 @@
+.identificado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-3);
+  margin-bottom: var(--espaco-4);
+}
+
+.formulario {
+  max-width: 420px;
+  margin-bottom: var(--espaco-4);
+}
