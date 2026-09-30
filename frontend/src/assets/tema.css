@@ -1,14 +1,29 @@
+/*
+ * Paleta: docs/color-palette-383838-d1ddf0-7b849d-49a794-93d7b4.png
+ * #383838 grafite · #D1DDF0 azul claro · #7B849D ardósia · #49A794 verde-azulado · #93D7B4 menta
+ * Quando a cor pura não atinge o contraste WCAG AA (4,5:1 texto, 3:1 ícone/borda), o token usa
+ * um tom da mesma cor, só escurecido ou clareado; a cor pura fica para fundo e decoração.
+ */
 :root {
-  --cor-texto: #1f2328;
-  --cor-texto-suave: #59636e;
+  --cor-texto: #383838;
+  --cor-texto-suave: #5f6880; /* #7B849D escurecido: o puro dá 3,7:1 no branco */
   --cor-fundo: #ffffff;
-  --cor-superficie: #f6f8fa;
-  --cor-borda: #d1d9e0;
-  --cor-destaque: #0969da;
-  --cor-erro: #d1242f;
-  --cor-aviso: #9a6700;
-  --cor-aviso-fundo: #fff8c5;
-  --cor-sucesso: #1a7f37;
+  --cor-superficie: #eef3fa; /* #D1DDF0 clareado */
+  --cor-borda: #7b849d;
+  --cor-borda-suave: #d1ddf0;
+  --cor-destaque: #357d6f; /* #49A794 escurecido: foco, links, ícones com significado */
+  --cor-destaque-decorativo: #49a794;
+  --cor-destaque-forte: #357d6f;
+  --cor-texto-sobre-destaque: #ffffff;
+  --cor-balao-usuario: #d1ddf0;
+  --cor-balao-agente: #ffffff;
+  --cor-avatar-usuario: #d1ddf0;
+  --cor-avatar-agente: #93d7b4;
+  --cor-icone-avatar: #383838; /* avatares têm fundo claro nos dois temas */
+  --cor-erro: #c0392b;
+  --cor-aviso: #b7791f;
+  --cor-aviso-fundo: #fdf3d0;
+  --cor-sucesso: #357d6f;
 
   --fonte: system-ui, 'Segoe UI', Roboto, sans-serif;
   --fonte-mono: ui-monospace, Consolas, monospace;
@@ -19,19 +34,29 @@
   --espaco-4: 24px;
   --espaco-5: 32px;
   --raio: 6px;
+  --raio-balao: 16px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --cor-texto: #f0f6fc;
-    --cor-texto-suave: #9198a1;
-    --cor-fundo: #0d1117;
-    --cor-superficie: #151b23;
-    --cor-borda: #3d444d;
-    --cor-destaque: #4493f8;
-    --cor-erro: #f85149;
-    --cor-aviso: #d29922;
-    --cor-aviso-fundo: #2e2a1f;
-    --cor-sucesso: #3fb950;
+    --cor-texto: #d1ddf0;
+    --cor-texto-suave: #a9b1c6; /* #7B849D clareado */
+    --cor-fundo: #383838;
+    --cor-superficie: #424242;
+    --cor-borda: #7b849d;
+    --cor-borda-suave: #4d4d4d;
+    --cor-destaque: #93d7b4;
+    --cor-destaque-decorativo: #49a794;
+    --cor-destaque-forte: #93d7b4;
+    --cor-texto-sobre-destaque: #383838;
+    --cor-balao-usuario: #4a5266;
+    --cor-balao-agente: #424242;
+    --cor-avatar-usuario: #d1ddf0;
+    --cor-avatar-agente: #93d7b4;
+    --cor-icone-avatar: #383838;
+    --cor-erro: #ff8a80;
+    --cor-aviso: #e0b04a;
+    --cor-aviso-fundo: #4a4232;
+    --cor-sucesso: #93d7b4;
   }
 }

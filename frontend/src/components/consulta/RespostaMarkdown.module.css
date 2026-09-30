@@ -1,0 +1,75 @@
+.markdown {
+  overflow-wrap: anywhere;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown :is(p, ul, ol, pre, blockquote) {
+  margin: var(--espaco-2) 0;
+}
+
+.markdown :is(ul, ol) {
+  padding-left: var(--espaco-4);
+}
+
+.markdown :is(h1, h2, h3, h4) {
+  margin: var(--espaco-3) 0 var(--espaco-2);
+  font-size: 1rem;
+}
+
+.markdown code {
+  font-family: var(--fonte-mono);
+  font-size: 0.875em;
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  background: var(--cor-superficie);
+}
+
+.markdown pre {
+  padding: var(--espaco-2);
+  border-radius: var(--raio);
+  background: var(--cor-superficie);
+  overflow-x: auto;
+}
+
+.markdown pre code {
+  padding: 0;
+  background: none;
+}
+
+.markdown blockquote {
+  padding-left: var(--espaco-3);
+  border-left: 3px solid var(--cor-destaque-decorativo);
+  color: var(--cor-texto-suave);
+}
+
+.tabela {
+  overflow-x: auto;
+  margin: var(--espaco-2) 0;
+}
+
+.tabela table {
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.tabela :is(th, td) {
+  padding: var(--espaco-1) var(--espaco-2);
+  border: 1px solid var(--cor-borda-suave);
+  text-align: left;
+}
+
+.tabela th {
+  background: var(--cor-superficie);
+}
+
+.imagem {
+  color: var(--cor-texto-suave);
+  font-style: italic;
+}

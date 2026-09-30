@@ -16,12 +16,15 @@ Contratos completos: `docs/api-ops-agent.md` e `docs/api-query-agent.md`. **Em d
 
 ## Stack
 
-React 18 · Vite · TypeScript (strict) · axios · npm
+React 19 · Vite · TypeScript (strict) · axios · react-markdown + remark-gfm · npm
 
 - **Só npm.** `package-lock.json` é versionado; no CI, `npm ci`. Nunca yarn/pnpm.
 - **Nenhuma dependência nova sem aprovação.** Estilo com CSS Modules (nativo do Vite). Abas por
-  estado, sem roteador. Decisões pendentes: renderizador de markdown (respostas do query-agent) e
-  Vitest + Testing Library para testes.
+  estado, sem roteador. Markdown das respostas do query-agent: `react-markdown` + `remark-gfm`.
+  Decisão pendente: Vitest + Testing Library para testes.
+- **Cores só pelos tokens de `src/assets/tema.css`**, derivados da paleta
+  `docs/color-palette-383838-d1ddf0-7b849d-49a794-93d7b4.png`. Onde a cor pura não atinge
+  WCAG AA, o token usa um tom da mesma cor; não use hex solto nos `.module.css`.
 
 ## Estrutura
 
@@ -127,8 +130,10 @@ normaliza). UF por select das 27 siglas. Cupom: código em maiúsculas enquanto 
   reenviam o recebido. "Nova conversa" descarta o id e as mensagens.
 - `thread_id` em `sessionStorage` (acesso em `try/catch`), para sobreviver a recarregar a página.
 - **Uma pergunta por vez por conversa.** Entrada desabilitada até a resposta chegar.
-- A resposta é texto do LLM, possivelmente markdown. **Nunca `dangerouslySetInnerHTML`** com esse
-  texto. Enquanto não houver renderizador aprovado, exibir como texto com `white-space: pre-wrap`.
+- A resposta do agente é markdown, renderizada por `RespostaMarkdown` (`react-markdown` +
+  `remark-gfm`), **sem `rehype-raw`**: HTML bruto na resposta não vira elemento. Imagens viram só o
+  texto alternativo (não carregar URL vinda do LLM); links abrem com `rel="noopener noreferrer"`.
+  **Nunca `dangerouslySetInnerHTML`.** A fala do usuário é texto puro com `white-space: pre-wrap`.
 - Resposta terminando com `[Limite de ...]` → destacar como resposta possivelmente incompleta.
 - Se a API reiniciar, o `thread_id` passa a abrir uma conversa sem histórico, silenciosamente.
   O frontend não consegue detectar; não tentar.
@@ -157,7 +162,8 @@ normaliza). UF por select das 27 siglas. Cupom: código em maiúsculas enquanto 
 - **Nada secreto em variável `VITE_*`**: ela vai para o bundle público. O frontend não tem chaves.
 - Não logar corpo de requisição nem de erro: o 422 do query-agent ecoa o `input` enviado, e o
   formulário carrega CNPJ e imagem.
-- Texto vindo do LLM (avisos, mensagem, resposta) é sempre renderizado como texto, nunca como HTML.
+- Texto vindo do LLM nunca é interpretado como HTML: avisos e mensagem como texto; a resposta do
+  query-agent como markdown sem HTML bruto (ver Aba Consultas).
 
 ## Convenções
 
