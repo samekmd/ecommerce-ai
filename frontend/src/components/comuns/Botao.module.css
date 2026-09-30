@@ -20,8 +20,8 @@
 }
 
 .primario {
-  background: var(--cor-destaque);
-  color: #fff;
+  background: var(--cor-destaque-forte);
+  color: var(--cor-texto-sobre-destaque);
 }
 
 .secundario {

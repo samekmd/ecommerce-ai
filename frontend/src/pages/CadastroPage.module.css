@@ -9,7 +9,7 @@
 
 .painel {
   padding-top: var(--espaco-4);
-  border-top: 1px solid var(--cor-borda);
+  border-top: 1px solid var(--cor-borda-suave);
 }
 
 .aviso {

@@ -7,7 +7,7 @@
 .abas {
   display: flex;
   gap: var(--espaco-2);
-  border-bottom: 1px solid var(--cor-borda);
+  border-bottom: 1px solid var(--cor-borda-suave);
   margin-bottom: var(--espaco-4);
 }
 

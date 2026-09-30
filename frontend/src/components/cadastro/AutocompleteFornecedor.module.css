@@ -8,12 +8,12 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  border: 1px solid var(--cor-borda);
+  border: 1px solid var(--cor-borda-suave);
   border-radius: var(--raio);
 }
 
 .resultados li + li {
-  border-top: 1px solid var(--cor-borda);
+  border-top: 1px solid var(--cor-borda-suave);
 }
 
 .opcao {
