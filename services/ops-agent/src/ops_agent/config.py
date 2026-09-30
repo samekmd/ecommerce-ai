@@ -84,13 +84,17 @@ class Configuracao(BaseSettings):
     sql_echo: bool = False
 
     # ---------------------------------------------------------------
-    # LLM via OpenRouter
+    # LLM: Groq como principal, OpenRouter como fallback. Os gratuitos do
+    # OpenRouter falharam como principal (tool call escrita como texto,
+    # 429/503 upstream); ficam so como reserva quando o Groq cai.
     # ---------------------------------------------------------------
-    openrouter_api_key: SecretStr
+    # Mesma variavel do query-agent (mesma conta Groq).
+    groq_api_key: SecretStr
+    ops_modelo_groq: str = "qwen/qwen3.8-27b"
+    # Vazio = sem fallback; a chave do OpenRouter so e exigida com modelo.
+    ops_modelo_openrouter: str | None = None
+    openrouter_api_key: SecretStr = SecretStr("")
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    # Obrigatorio e sem default: a escolha do modelo decide se tool
-    # calling e saida estruturada funcionam.
-    ops_modelo: str
     ops_temperatura: float = Field(default=0.0, ge=0.0, le=0.3)
     # Proposta estruturada com avisos passa facil dos 512 do query-agent.
     ops_max_tokens: int = Field(default=2048, gt=0)
@@ -158,20 +162,26 @@ class Configuracao(BaseSettings):
             raise ValueError("URL de banco nao pode ser vazia")
         return SecretStr(_normalizar_url(url))
 
-    @field_validator("openrouter_api_key")
+    @field_validator("groq_api_key")
     @classmethod
-    def _validar_chave(cls, valor: SecretStr) -> SecretStr:
+    def _validar_chave_groq(cls, valor: SecretStr) -> SecretStr:
         if not valor.get_secret_value().strip():
-            raise ValueError("OPENROUTER_API_KEY nao pode ser vazia")
+            raise ValueError("GROQ_API_KEY nao pode ser vazia")
         return valor
 
-    @field_validator("ops_modelo")
+    @field_validator("ops_modelo_groq")
     @classmethod
-    def _validar_modelo(cls, valor: str) -> str:
+    def _validar_modelo_groq(cls, valor: str) -> str:
         modelo = valor.strip()
         if not modelo:
-            raise ValueError("OPS_MODELO nao pode ser vazio")
+            raise ValueError("OPS_MODELO_GROQ nao pode ser vazio")
         return modelo
+
+    @field_validator("ops_modelo_openrouter")
+    @classmethod
+    def _normalizar_modelo_openrouter(cls, valor: str | None) -> str | None:
+        # OPS_MODELO_OPENROUTER= (vazio no .env) desliga o fallback.
+        return (valor or "").strip() or None
 
     @field_validator("ops_fuso_horario")
     @classmethod
@@ -201,6 +211,12 @@ class Configuracao(BaseSettings):
         return self
 
     @model_validator(mode="after")
+    def _validar_fallback(self) -> "Configuracao":
+        if self.ops_modelo_openrouter and not self.openrouter_api_key.get_secret_value().strip():
+            raise ValueError("OPS_MODELO_OPENROUTER definido exige OPENROUTER_API_KEY")
+        return self
+
+    @model_validator(mode="after")
     def _validar_modelo_gratuito(self) -> "Configuracao":
         # Provedores gratuitos podem reter e treinar com os prompts, e as
         # frases trazem nomes de fornecedores e CNPJs.
@@ -215,12 +231,25 @@ class Configuracao(BaseSettings):
 
     @property
     def modelo_gratuito(self) -> bool:
-        # openrouter/free e stealth/* tem preco zero sem o sufixo :free.
+        """Se o fallback do OpenRouter e um modelo gratuito.
+
+        openrouter/free e stealth/* tem preco zero sem o sufixo :free.
+        """
+        modelo = self.ops_modelo_openrouter or ""
         return (
-            self.ops_modelo.endswith(":free")
-            or self.ops_modelo == "openrouter/free"
-            or self.ops_modelo.startswith("stealth/")
+            modelo.endswith(":free") or modelo == "openrouter/free" or modelo.startswith("stealth/")
         )
+
+    @property
+    def modelo_principal(self) -> str:
+        return f"groq:{self.ops_modelo_groq}"
+
+    @property
+    def modelos_em_uso(self) -> str:
+        """Cadeia principal > fallback, gravada na auditoria e no trace."""
+        if self.ops_modelo_openrouter is None:
+            return self.modelo_principal
+        return f"{self.modelo_principal} > openrouter:{self.ops_modelo_openrouter}"
 
     @property
     def langfuse_configurado(self) -> bool:
@@ -263,7 +292,7 @@ def obter_configuracao() -> Configuracao:
         # Gratuitos falham com mais frequencia em tool calling e saida
         # estruturada; o aviso poupa tempo depurando prompt a toa.
         logger.warning(
-            "Modelo gratuito em uso (%s): rate limit baixo e tool calling instavel",
-            configuracao.ops_modelo,
+            "Fallback com modelo gratuito (%s): rate limit baixo e tool calling instavel",
+            configuracao.ops_modelo_openrouter,
         )
     return configuracao

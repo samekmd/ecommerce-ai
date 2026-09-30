@@ -30,7 +30,7 @@ async def interpretar(requisicao: RequisicaoInterpretar, usuario: UsuarioAtual) 
         registro = {
             "usuario": usuario,
             "mensagem": requisicao.mensagem,
-            "modelo": obter_configuracao().ops_modelo,
+            "modelo": obter_configuracao().modelos_em_uso,
             "trace_id": rastro.trace_id,
             "prompt_versao": prompt.versao,
         }

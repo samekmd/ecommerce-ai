@@ -10,7 +10,12 @@ import uuid
 from typing import Any, Literal
 
 from pydantic import BaseModel
-from pydantic_ai.exceptions import ModelAPIError, UnexpectedModelBehavior, UsageLimitExceeded
+from pydantic_ai.exceptions import (
+    FallbackExceptionGroup,
+    ModelAPIError,
+    UnexpectedModelBehavior,
+    UsageLimitExceeded,
+)
 from sqlalchemy.exc import DBAPIError, TimeoutError as TimeoutPool
 
 from ops_agent.database import sessao_app
@@ -30,7 +35,7 @@ def categoria_do_erro(erro: BaseException) -> str:
         return "limite_requisicoes"
     if isinstance(erro, UnexpectedModelBehavior):
         return "retries_esgotados"
-    if isinstance(erro, ModelAPIError):
+    if isinstance(erro, (ModelAPIError, FallbackExceptionGroup)):
         return "llm_indisponivel"
     if isinstance(erro, (DBAPIError, TimeoutPool)):
         return "banco_indisponivel"

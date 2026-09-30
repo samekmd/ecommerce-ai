@@ -78,8 +78,13 @@ def test_trace_une_raiz_agente_modelo_e_tool(exportador, deps):
     assert "ops-agent" in texto
     assert "ops-interpretar" in texto
 
-    chave = obter_configuracao().openrouter_api_key.get_secret_value()
-    assert all(chave not in atributos(s) for s in spans)
+    configuracao = obter_configuracao()
+    for chave in (
+        configuracao.openrouter_api_key.get_secret_value(),
+        configuracao.groq_api_key.get_secret_value(),
+    ):
+        if chave:
+            assert all(chave not in atributos(s) for s in spans)
 
 
 def test_prompt_do_langfuse_ligado_a_generation(exportador, deps):

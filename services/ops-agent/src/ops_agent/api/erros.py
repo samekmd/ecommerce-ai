@@ -10,7 +10,12 @@ import logging
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic_ai.exceptions import ModelAPIError, UnexpectedModelBehavior, UsageLimitExceeded
+from pydantic_ai.exceptions import (
+    FallbackExceptionGroup,
+    ModelAPIError,
+    UnexpectedModelBehavior,
+    UsageLimitExceeded,
+)
 from sqlalchemy.exc import OperationalError, TimeoutError as TimeoutPool
 
 from ops_agent.services.erros import ErroCadastro, ErroConflito
@@ -74,6 +79,8 @@ def registrar_tratadores(app: FastAPI) -> None:
     app.add_exception_handler(UnexpectedModelBehavior, _agente_falhou)
     app.add_exception_handler(UsageLimitExceeded, _agente_falhou)
     app.add_exception_handler(ModelAPIError, _llm_indisponivel)
+    # Groq e o fallback do OpenRouter falharam: o FallbackModel agrupa os erros.
+    app.add_exception_handler(FallbackExceptionGroup, _llm_indisponivel)
     app.add_exception_handler(OperationalError, _banco_indisponivel)
     app.add_exception_handler(TimeoutPool, _banco_indisponivel)
     app.add_exception_handler(Exception, _inesperado)

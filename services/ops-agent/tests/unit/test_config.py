@@ -8,13 +8,16 @@ from ops_agent.config import ConfiguracaoInvalida, carregar_configuracao
 
 SENHA = "senha_super_secreta"
 CHAVE = "sk-or-chave-super-secreta"
+CHAVE_GROQ = "gsk-chave-groq-super-secreta"
 
 AMBIENTE_VALIDO = {
     "OPS_LEITURA_DATABASE_URL": f"postgresql://agente_leitura:{SENHA}@localhost:5434/loja",
     "OPS_ESCRITA_DATABASE_URL": f"postgresql://agente_escrita:{SENHA}@localhost:5434/loja",
     "APP_DATABASE_URL": f"postgresql+psycopg://text2sql:{SENHA}@localhost:5433/text2sql_app",
+    "GROQ_API_KEY": CHAVE_GROQ,
+    "OPS_MODELO_GROQ": "qwen/qwen3.8-27b",
     "OPENROUTER_API_KEY": CHAVE,
-    "OPS_MODELO": "openai/gpt-4.1-mini",
+    "OPS_MODELO_OPENROUTER": "openai/gpt-4.1-mini",
 }
 
 
@@ -22,7 +25,7 @@ AMBIENTE_VALIDO = {
 def ambiente(monkeypatch):
     # Isola do ambiente real e do .env: so vale o que cada teste define.
     for nome in list(os.environ):
-        if nome.startswith(("OPS_", "OPENROUTER_", "APP_DATABASE", "LANGFUSE_", "AMBIENTE")):
+        if nome.startswith(("OPS_", "OPENROUTER_", "GROQ_", "APP_DATABASE", "LANGFUSE_", "AMBIENTE")):
             monkeypatch.delenv(nome)
     for nome, valor in AMBIENTE_VALIDO.items():
         monkeypatch.setenv(nome, valor)
@@ -35,10 +38,13 @@ def carregar():
 def test_ambiente_completo_carrega_sem_expor_segredos():
     config = carregar()
 
-    assert config.ops_modelo == "openai/gpt-4.1-mini"
+    assert config.ops_modelo_groq == "qwen/qwen3.8-27b"
+    assert config.ops_modelo_openrouter == "openai/gpt-4.1-mini"
+    assert config.groq_api_key.get_secret_value() == CHAVE_GROQ
     assert config.openrouter_api_key.get_secret_value() == CHAVE
     assert SENHA not in repr(config)
     assert CHAVE not in repr(config)
+    assert CHAVE_GROQ not in repr(config)
     assert SENHA not in str(config.model_dump())
 
 
@@ -58,15 +64,50 @@ def test_postgres_curto_tambem_normalizado(monkeypatch):
     assert url.startswith("postgresql+psycopg://")
 
 
-def test_modelo_ausente_falha(monkeypatch):
-    monkeypatch.delenv("OPS_MODELO")
+def test_groq_e_obrigatorio(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY")
 
-    with pytest.raises(ConfiguracaoInvalida, match="ops_modelo"):
+    with pytest.raises(ConfiguracaoInvalida, match="groq_api_key"):
+        carregar()
+
+
+def test_modelo_groq_padrao(monkeypatch):
+    monkeypatch.delenv("OPS_MODELO_GROQ")
+
+    assert carregar().ops_modelo_groq == "qwen/qwen3.8-27b"
+
+
+def test_modelos_em_uso_com_fallback():
+    config = carregar()
+
+    assert config.modelo_principal == "groq:qwen/qwen3.8-27b"
+    assert config.modelos_em_uso == "groq:qwen/qwen3.8-27b > openrouter:openai/gpt-4.1-mini"
+
+
+@pytest.mark.parametrize("valor", [None, ""])
+def test_sem_fallback_nao_exige_chave_do_openrouter(monkeypatch, valor):
+    monkeypatch.delenv("OPENROUTER_API_KEY")
+    if valor is None:
+        monkeypatch.delenv("OPS_MODELO_OPENROUTER")
+    else:
+        monkeypatch.setenv("OPS_MODELO_OPENROUTER", valor)
+
+    config = carregar()
+
+    assert config.ops_modelo_openrouter is None
+    assert config.modelos_em_uso == "groq:qwen/qwen3.8-27b"
+    assert config.modelo_gratuito is False
+
+
+def test_fallback_sem_chave_do_openrouter_falha(monkeypatch):
+    monkeypatch.delenv("OPENROUTER_API_KEY")
+
+    with pytest.raises(ConfiguracaoInvalida, match="exige OPENROUTER_API_KEY"):
         carregar()
 
 
 def test_modelo_gratuito_permitido_em_desenvolvimento(monkeypatch):
-    monkeypatch.setenv("OPS_MODELO", "nvidia/nemotron-3-super-120b-a12b:free")
+    monkeypatch.setenv("OPS_MODELO_OPENROUTER", "nvidia/nemotron-3-super-120b-a12b:free")
 
     assert carregar().modelo_gratuito is True
 
@@ -80,7 +121,7 @@ def test_modelo_pago_nao_e_gratuito():
 )
 def test_modelo_gratuito_recusado_em_producao(monkeypatch, modelo):
     monkeypatch.setenv("AMBIENTE", "producao")
-    monkeypatch.setenv("OPS_MODELO", modelo)
+    monkeypatch.setenv("OPS_MODELO_OPENROUTER", modelo)
 
     with pytest.raises(ConfiguracaoInvalida, match="proibido em producao"):
         carregar()

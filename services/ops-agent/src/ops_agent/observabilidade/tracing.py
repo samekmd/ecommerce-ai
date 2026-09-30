@@ -60,7 +60,7 @@ class Rastro:
 
 
 def tags_da_interpretacao() -> list[str]:
-    return [TAG_SERVICO, f"modelo-{obter_configuracao().ops_modelo}"]
+    return [TAG_SERVICO, f"modelo-{obter_configuracao().modelo_principal}"]
 
 
 @asynccontextmanager
@@ -91,7 +91,9 @@ async def rastrear_interpretacao(
                 trace_name=NOME_TRACE,
                 tags=tags_da_interpretacao(),
                 metadata={
-                    "modelo": obter_configuracao().ops_modelo,
+                    # Cadeia configurada; o modelo que respondeu cada chamada
+                    # aparece na propria generation.
+                    "modelo": obter_configuracao().modelos_em_uso,
                     "prompt_versao": str(prompt.versao) if prompt.versao else "fallback",
                 },
                 prompt=prompt.cliente,

@@ -12,7 +12,8 @@ Entidades do MVP: **produto, fornecedor, categoria, cupom**. Uma entidade por me
 Monorepo `ecommerce-ai`: este é `services/ops-agent/`; `services/query-agent/` é o text2sql
 (somente leitura); código comum em `packages/core/`.
 
-Stack: Python 3.12 · Pydantic AI · Pydantic 2 · FastAPI · OpenRouter · PostgreSQL 16 · SQLAlchemy 2.0
+Stack: Python 3.12 · Pydantic AI · Pydantic 2 · FastAPI · Groq (LLM principal) + OpenRouter
+(fallback) · PostgreSQL 16 · SQLAlchemy 2.0
 
 ## Princípio central: o agente propõe, o humano confirma, o serviço grava
 
@@ -129,6 +130,15 @@ Tabela `produtos_imagens` (`docker/init-target/04_produtos_imagens.sql`), 1:1 co
 - **Dependências via `RunContext`**: sessão de leitura, usuário, data atual.
 - **Stateless** no MVP: uma frase, uma proposta. Correções acontecem no formulário.
 - `retries` e limite de requisições por execução sempre definidos. Temperatura baixa.
+- **Modelo**: Groq como principal (`OPS_MODELO_GROQ`, padrão `qwen/qwen3.8-27b`, chave
+  `GROQ_API_KEY`) e OpenRouter como fallback automático (`OPS_MODELO_OPENROUTER`; vazio = sem
+  fallback). `FallbackModel` só troca de provedor em **erro de API** (HTTP 4xx/5xx, conexão,
+  timeout); tool call inválida não é erro de API e segue nos `retries` do mesmo modelo. Todos os
+  provedores falhando → `FallbackExceptionGroup` → 503 (`llm_indisponivel` na auditoria).
+- O SDK do Groq refaz sozinho requisições com 429 (espera de dezenas de segundos) antes de o
+  fallback entrar: em rate limit a interpretação fica lenta, não falha.
+- Auditoria e trace gravam a cadeia (`modelos_em_uso`: `groq:... > openrouter:...`); o modelo que
+  respondeu cada chamada aparece na generation do Langfuse.
 
 | Tool (somente leitura) | Devolve |
 |---|---|
@@ -209,13 +219,19 @@ entra por instrução dinâmica, depois do prompt.
 3. **Transação curta, dentro do service.** Nunca sessão aberta enquanto o LLM responde.
 4. **Auditoria no `app_db`**, não no banco de negócio: usuário, frase, proposta, payload confirmado,
    resultado. A diferença proposta × confirmação é a métrica de qualidade do agente.
-5. `config.py` é o único leitor de ambiente. Chave do OpenRouter nunca em log nem em trace.
+5. `config.py` é o único leitor de ambiente. Chaves do Groq e do OpenRouter nunca em log nem em
+   trace (passadas explicitamente aos providers, que senão leriam o ambiente sozinhos).
 
 ## Armadilhas conhecidas
 
-- Modelos `:free` do OpenRouter falham em tool calling e saída estruturada. Se o agente ignorar
-  tools ou gerar JSON inválido, troque o modelo antes de mexer no prompt. Gratuitos (`:free`,
-  `openrouter/free`, `stealth/*`) só fora de produção: o `config.py` recusa em `producao`.
+- Modelos `:free` do OpenRouter falham em tool calling e saída estruturada (tool call escrita
+  como texto, 429/503 upstream) — por isso saíram de principal e ficaram só como fallback. Se o
+  agente ignorar tools ou gerar JSON inválido, troque o modelo antes de mexer no prompt.
+  Gratuitos (`:free`, `openrouter/free`, `stealth/*`) só fora de produção: o `config.py` recusa
+  em `producao`.
+- O schema padrão de `Decimal` (alternativa string com regex de lookahead) derruba provedores ao
+  converter a tool (502 na NVIDIA). Campos numéricos de proposta usam `NumeroProposta` (JSON
+  schema só `number`); um teste garante que nenhum schema de proposta tem `pattern`.
 
 ## Testes
 

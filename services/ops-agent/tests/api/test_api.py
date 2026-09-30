@@ -249,3 +249,24 @@ def test_rotas_de_apoio(cliente):
     moda = next(c["id"] for c in categorias if c["caminho"] == "Moda")
     sku = cliente.get("/api/v1/produtos/sku-sugerido", params={"categoria_id": moda}).json()
     assert sku == {"sku": "MOD-000001"}
+
+
+def test_todos_os_provedores_falharam_503(cliente, usuario, monkeypatch):
+    from pydantic_ai.exceptions import FallbackExceptionGroup, ModelHTTPError
+
+    async def falha_geral(*args, **kwargs):
+        raise FallbackExceptionGroup(
+            "todos falharam",
+            [ModelHTTPError(503, "qwen/qwen3.8-27b"), ModelHTTPError(429, "cohere/north-mini-code:free")],
+        )
+
+    monkeypatch.setattr(modulo_agente, "interpretar", falha_geral)
+
+    resposta = cliente.post(
+        "/api/v1/interpretar", json={"mensagem": "Camisa"}, headers={"X-Usuario": usuario}
+    )
+
+    assert resposta.status_code == 503
+    assert "indisponivel" in resposta.json()["erro"]
+    linhas = consultar(cliente, "SELECT erro FROM ops_interpretacoes WHERE usuario = :u", u=usuario)
+    assert linhas == [{"erro": "llm_indisponivel"}]

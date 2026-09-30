@@ -186,3 +186,50 @@ def test_interpretar_usa_config_e_devolve_saida(monkeypatch):
     assert isinstance(saida, ProdutoProposta)
     assert saida.nome == "Camisa Nike"
     assert saida.avisos == ["Informe o fornecedor"]
+
+
+# --- modelo ------------------------------------------------------------
+
+
+def _config_de_modelo(monkeypatch, modelo_openrouter):
+    from ops_agent.config import obter_configuracao
+
+    configuracao = obter_configuracao()
+    monkeypatch.setattr(configuracao, "ops_modelo_groq", "qwen/qwen3.8-27b")
+    monkeypatch.setattr(configuracao, "ops_modelo_openrouter", modelo_openrouter)
+    modulo_agente.obter_modelo.cache_clear()
+    yield
+    modulo_agente.obter_modelo.cache_clear()
+
+
+@pytest.fixture
+def com_fallback(monkeypatch):
+    yield from _config_de_modelo(monkeypatch, "cohere/north-mini-code:free")
+
+
+@pytest.fixture
+def sem_fallback(monkeypatch):
+    yield from _config_de_modelo(monkeypatch, None)
+
+
+def test_groq_principal_com_openrouter_de_fallback(com_fallback):
+    from pydantic_ai.models.fallback import FallbackModel
+    from pydantic_ai.models.groq import GroqModel
+    from pydantic_ai.models.openrouter import OpenRouterModel
+
+    modelo = modulo_agente.obter_modelo()
+
+    assert isinstance(modelo, FallbackModel)
+    principal, reserva = modelo.models
+    assert isinstance(principal, GroqModel) and principal.model_name == "qwen/qwen3.8-27b"
+    assert isinstance(reserva, OpenRouterModel)
+    assert reserva.model_name == "cohere/north-mini-code:free"
+
+
+def test_sem_fallback_so_groq(sem_fallback):
+    from pydantic_ai.models.groq import GroqModel
+
+    modelo = modulo_agente.obter_modelo()
+
+    assert isinstance(modelo, GroqModel)
+    assert modelo.model_name == "qwen/qwen3.8-27b"

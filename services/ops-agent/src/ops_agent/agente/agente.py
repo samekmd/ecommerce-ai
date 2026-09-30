@@ -8,8 +8,12 @@ o modelo por FunctionModel.
 from functools import lru_cache
 
 from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai.models import Model
+from pydantic_ai.models.fallback import FallbackModel
+from pydantic_ai.models.groq import GroqModel
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.output import ToolOutput
+from pydantic_ai.providers.groq import GroqProvider
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
@@ -126,12 +130,28 @@ async def validar_saida(
 
 
 @lru_cache(maxsize=1)
-def obter_modelo() -> OpenRouterModel:
+def obter_modelo() -> Model:
+    """Groq como principal; OpenRouter como fallback quando configurado.
+
+    O FallbackModel so troca de provedor em erro de API (HTTP 4xx/5xx,
+    conexao, timeout). Tool call invalida nao e erro de API: continua nos
+    retries do mesmo modelo, que e onde o validador de saida atua.
+    Chaves passadas explicitamente: sem elas os providers leriam
+    GROQ_API_KEY/OPENROUTER_API_KEY do ambiente, e config.py deixaria de
+    ser o unico leitor.
+    """
     configuracao = obter_configuracao()
-    # Chave passada explicitamente: sem ela o provider leria OPENROUTER_API_KEY
-    # direto do ambiente, e config.py deixaria de ser o unico leitor.
-    provider = OpenRouterProvider(api_key=configuracao.openrouter_api_key.get_secret_value())
-    return OpenRouterModel(configuracao.ops_modelo, provider=provider)
+    principal = GroqModel(
+        configuracao.ops_modelo_groq,
+        provider=GroqProvider(api_key=configuracao.groq_api_key.get_secret_value()),
+    )
+    if configuracao.ops_modelo_openrouter is None:
+        return principal
+    reserva = OpenRouterModel(
+        configuracao.ops_modelo_openrouter,
+        provider=OpenRouterProvider(api_key=configuracao.openrouter_api_key.get_secret_value()),
+    )
+    return FallbackModel(principal, reserva)
 
 
 async def interpretar(
