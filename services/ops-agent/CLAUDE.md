@@ -56,6 +56,8 @@ src/ops_agent/
 └── observabilidade/     # setup.py (cliente Langfuse, instrument_all), tracing.py (trace por
                          # interpretação)
 scripts/seed_prompt.py   # publica a 1ª versão do system prompt no Langfuse
+scripts/seed_dataset.py  # publica o dataset de regressão (frase → tipo + regra por campo)
+scripts/rodar_experimento.py  # roda o dataset no agente; scores determinísticos no Langfuse
 tests/  unit/ · agente/ (FunctionModel, sem rede) · api/ (TestClient) ·
         evals/ (LLM real, fora do CI de PR)
 ```
@@ -238,6 +240,9 @@ entra por instrução dinâmica, depois do prompt.
 - `unit/`: schemas (preço, CNPJ, UF, percentual, datas, imagem) e services contra Postgres de teste,
   incluindo cada constraint do DDL virando o erro de campo certo.
 - `agente/`: `TestModel`/`FunctionModel`; fluxo de tools, validador, rejeição de ID inventado.
+- Regressão de prompt/modelo: `scripts/seed_dataset.py` (dataset `ops-agente-regressao-v0`,
+  categoria por nome e fornecedor ativo real resolvidos no banco; data fixa injetada via
+  `interpretar(hoje=...)`) e `scripts/rodar_experimento.py` (`PYTHONPATH=.`; `--itens` poupa cota).
 - `evals/`: frase → proposta esperada. Casos obrigatórios: preço por extenso, fornecedor
   inexistente, categoria ambígua, cupom em reais, data relativa, pedido de exclusão (recusar).
 

@@ -33,12 +33,13 @@ class DependenciasAgente:
 
 
 def criar_dependencias(
-    usuario: str, prompt_sistema: str = PROMPT_SISTEMA_PADRAO
+    usuario: str, prompt_sistema: str = PROMPT_SISTEMA_PADRAO, hoje: date | None = None
 ) -> DependenciasAgente:
+    """`hoje` fixo so em eval: datas relativas precisam de resposta estavel no dataset."""
     configuracao = obter_configuracao()
     return DependenciasAgente(
         usuario=usuario,
-        hoje=configuracao.hoje(),
+        hoje=hoje or configuracao.hoje(),
         max_fornecedores=configuracao.ops_max_fornecedores_busca,
         prompt_sistema=prompt_sistema,
     )

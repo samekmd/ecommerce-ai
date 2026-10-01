@@ -5,6 +5,7 @@ config a cada run. Importar este modulo nao exige .env, e os testes trocam
 o modelo por FunctionModel.
 """
 
+from datetime import date
 from functools import lru_cache
 
 from pydantic_ai import Agent, ModelRetry, RunContext
@@ -155,7 +156,10 @@ def obter_modelo() -> Model:
 
 
 async def interpretar(
-    mensagem: str, usuario: str, prompt_sistema: str = PROMPT_SISTEMA_PADRAO
+    mensagem: str,
+    usuario: str,
+    prompt_sistema: str = PROMPT_SISTEMA_PADRAO,
+    hoje: date | None = None,
 ) -> Interpretacao:
     """Uma frase, uma proposta. Stateless: deps novas a cada chamada.
 
@@ -165,7 +169,7 @@ async def interpretar(
     configuracao = obter_configuracao()
     resultado = await agente.run(
         mensagem,
-        deps=criar_dependencias(usuario, prompt_sistema),
+        deps=criar_dependencias(usuario, prompt_sistema, hoje),
         model=obter_modelo(),
         model_settings=ModelSettings(
             temperature=configuracao.ops_temperatura,
