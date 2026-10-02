@@ -1,0 +1,34 @@
+.topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-3);
+  margin-bottom: var(--espaco-4);
+}
+
+.titulo {
+  margin: 0;
+}
+
+.titulo:focus {
+  outline: none;
+}
+
+.manual {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espaco-2);
+  margin-bottom: var(--espaco-4);
+  color: var(--cor-texto-suave);
+}
+
+.painel {
+  padding-top: var(--espaco-4);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.aviso {
+  color: var(--cor-erro);
+}

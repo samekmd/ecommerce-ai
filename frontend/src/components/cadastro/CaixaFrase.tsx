@@ -2,18 +2,19 @@ import { useState, type FormEvent } from 'react'
 import { Alerta } from '../comuns/Alerta.tsx'
 import { Botao } from '../comuns/Botao.tsx'
 import { Campo } from '../comuns/Campo.tsx'
-import { Carregando } from '../comuns/Carregando.tsx'
 
 const MAXIMO = 1000
 
 interface CaixaFraseProps {
+  // Ao voltar do formulário, a frase anterior reaparece para ser ajustada.
+  fraseInicial?: string
   aoInterpretar: (mensagem: string) => void
   carregando: boolean
   erro: string | null
 }
 
-export function CaixaFrase({ aoInterpretar, carregando, erro }: CaixaFraseProps) {
-  const [frase, setFrase] = useState('')
+export function CaixaFrase({ fraseInicial = '', aoInterpretar, carregando, erro }: CaixaFraseProps) {
+  const [frase, setFrase] = useState(fraseInicial)
   const limpa = frase.trim()
 
   function enviar(evento: FormEvent) {
@@ -41,7 +42,6 @@ export function CaixaFrase({ aoInterpretar, carregando, erro }: CaixaFraseProps)
       <Botao type="submit" carregando={carregando} disabled={!limpa}>
         Interpretar
       </Botao>
-      {carregando && <Carregando mensagem="Interpretando a frase… pode levar até 1 minuto." />}
       {erro && <Alerta tipo="erro">{erro}</Alerta>}
     </form>
   )

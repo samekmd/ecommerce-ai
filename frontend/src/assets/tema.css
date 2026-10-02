@@ -24,6 +24,7 @@
   --cor-aviso: #b7791f;
   --cor-aviso-fundo: #fdf3d0;
   --cor-sucesso: #357d6f;
+  --cor-sobreposicao: rgb(56 56 56 / 0.55); /* #383838 translúcido, fundo do modal */
 
   --fonte: system-ui, 'Segoe UI', Roboto, sans-serif;
   --fonte-mono: ui-monospace, Consolas, monospace;
@@ -58,5 +59,6 @@
     --cor-aviso: #e0b04a;
     --cor-aviso-fundo: #4a4232;
     --cor-sucesso: #93d7b4;
+    --cor-sobreposicao: rgb(20 20 20 / 0.7);
   }
 }
