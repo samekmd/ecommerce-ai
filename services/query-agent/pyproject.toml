@@ -1,8 +1,7 @@
 [project]
-name = "agent-text-to-sql"
+name = "query-agent"
 version = "0.1.0"
-description = "Agente de conversão de texto para SQL"
-readme = "README.md"
+description = "Agente text2sql para consultas no banco de e-commerce"
 requires-python = ">=3.11,<3.14"
 dependencies = [
     "langgraph>=0.2",
@@ -16,5 +15,6 @@ dependencies = [
     "psycopg[binary]>=3.3.5",
     "langchain-openrouter>=0.2.8",
     "langfuse>=4.15.4",
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.54.0",
 ]
-

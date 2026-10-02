@@ -1,0 +1,27 @@
+.formulario {
+  display: flex;
+  flex-direction: column;
+  max-width: 640px;
+}
+
+.titulo {
+  margin: 0 0 var(--espaco-3);
+}
+
+.linha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0 var(--espaco-3);
+}
+
+.acoes {
+  display: flex;
+  gap: var(--espaco-2);
+  margin-top: var(--espaco-2);
+}
+
+.criado {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

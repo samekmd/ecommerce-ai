@@ -1,0 +1,26 @@
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--espaco-4) var(--espaco-3);
+}
+
+.abas {
+  display: flex;
+  gap: var(--espaco-2);
+  border-bottom: 1px solid var(--cor-borda-suave);
+  margin-bottom: var(--espaco-4);
+}
+
+.aba {
+  padding: var(--espaco-2) var(--espaco-3);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--cor-texto-suave);
+  cursor: pointer;
+}
+
+.aba[aria-selected='true'] {
+  border-bottom-color: var(--cor-destaque);
+  color: var(--cor-texto);
+}

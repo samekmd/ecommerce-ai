@@ -1,4 +1,4 @@
-.PHONY: run avaliar
+.PHONY: run avaliar api
 
 run:
 	uv run streamlit run app.py
@@ -14,3 +14,6 @@ run:
 avaliar:
 	PYTHONPATH=. uv run python scripts/rodar_experimento.py \
 		$(if $(ITENS),--itens $(ITENS)) $(if $(NOME),--nome "$(NOME)")
+
+api:
+	uv run uvicorn api.main:app --reload

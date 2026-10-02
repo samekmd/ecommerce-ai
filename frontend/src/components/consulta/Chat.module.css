@@ -1,0 +1,270 @@
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: min(75vh, 680px);
+  min-height: 420px;
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-balao);
+  background: var(--cor-fundo);
+  overflow: hidden;
+}
+
+/* ---- Cabeçalho ---- */
+
+.cabecalho {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-3);
+  padding: var(--espaco-3);
+  border-bottom: 1px solid var(--cor-borda-suave);
+  background: var(--cor-superficie);
+}
+
+.identificacao {
+  flex: 1;
+  min-width: 0;
+}
+
+.nome {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.subtitulo {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--cor-texto-suave);
+}
+
+.novaConversa {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  padding: var(--espaco-2) var(--espaco-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: 999px;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  cursor: pointer;
+}
+
+.novaConversa:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Histórico ---- */
+
+.historico {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--espaco-4) var(--espaco-3);
+}
+
+.mensagens {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+.linha {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--espaco-2);
+}
+
+.linhaUsuario {
+  flex-direction: row-reverse;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--cor-icone-avatar);
+}
+
+.avatarAgente {
+  background: var(--cor-avatar-agente);
+}
+
+.avatarUsuario {
+  background: var(--cor-avatar-usuario);
+}
+
+.balao {
+  max-width: min(78%, 640px);
+  padding: var(--espaco-2) var(--espaco-3);
+  border-radius: var(--raio-balao);
+  line-height: 1.5;
+}
+
+.balaoAgente {
+  border: 1px solid var(--cor-destaque-decorativo);
+  border-bottom-left-radius: 4px;
+  background: var(--cor-balao-agente);
+}
+
+.balaoUsuario {
+  border-bottom-right-radius: 4px;
+  background: var(--cor-balao-usuario);
+}
+
+.balaoErro {
+  border: 1px solid var(--cor-erro);
+  border-bottom-left-radius: 4px;
+  color: var(--cor-erro);
+  background: var(--cor-balao-agente);
+}
+
+.balao :global([role='status']),
+.balao > div[role] {
+  margin: var(--espaco-2) 0 0;
+}
+
+.textoUsuario {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Boas-vindas ---- */
+
+.boasVindas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+.sugestoes {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 44px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-2);
+}
+
+.sugestao {
+  padding: var(--espaco-2) var(--espaco-3);
+  border: 1px solid var(--cor-destaque);
+  border-radius: 999px;
+  background: var(--cor-fundo);
+  color: var(--cor-destaque);
+  cursor: pointer;
+  text-align: left;
+}
+
+.sugestao:hover {
+  background: var(--cor-superficie);
+}
+
+/* ---- Digitando ---- */
+
+.digitando {
+  display: inline-flex;
+  gap: 4px;
+  padding: var(--espaco-1) 0;
+}
+
+.digitando span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cor-destaque-decorativo);
+  animation: pulsar 1.2s ease-in-out infinite;
+}
+
+.digitando span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.digitando span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulsar {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .digitando span {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* ---- Entrada ---- */
+
+.entrada {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--espaco-2);
+  padding: var(--espaco-3);
+  border-top: 1px solid var(--cor-borda-suave);
+  background: var(--cor-superficie);
+}
+
+.campoPergunta {
+  flex: 1;
+  max-height: 8.5em;
+  padding: var(--espaco-2) var(--espaco-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: 20px;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  resize: none;
+  line-height: 1.5;
+}
+
+.enviar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--cor-destaque-forte);
+  color: var(--cor-texto-sobre-destaque);
+  cursor: pointer;
+}
+
+.enviar:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chat :is(button, textarea):focus-visible {
+  outline: 2px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .novaConversa {
+    padding: var(--espaco-2);
+  }
+
+  .balao {
+    max-width: 85%;
+  }
+
+  .sugestoes {
+    padding-left: 0;
+  }
+}
